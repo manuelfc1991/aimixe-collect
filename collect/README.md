@@ -7,6 +7,11 @@ standard library only, no third-party packages. The plan is in `PLAN.md`.
 
 Python 3.11 or newer. No third-party packages.
 
+If Python is missing: Linux `sudo apt install python3` (or your distribution's equivalent);
+macOS type `python3` in Terminal and accept the command-line tools prompt, or `brew install
+python`; Windows use the installer from python.org and tick "Add python.exe to PATH". Check
+with `python3 --version` (Windows: `python --version`).
+
 - **Without installing** (Linux, macOS): use `bin/aimixe` as below.
 - **Any OS, including Windows**: `pip install .` from this folder puts an `aimixe` command on
   your PATH, so `aimixe collect` works in PowerShell, cmd, or any shell. Alternatively run
