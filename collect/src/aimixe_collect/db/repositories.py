@@ -250,6 +250,10 @@ class SessionRepo:
                                      (language_id, limit)).fetchall()
         return self.conn.execute("SELECT * FROM session ORDER BY started_at DESC LIMIT ?", (limit,)).fetchall()
 
+    def last_for_language(self, language_id: str) -> sqlite3.Row | None:
+        return self.conn.execute("SELECT * FROM session WHERE language_id=? ORDER BY started_at DESC LIMIT 1",
+                                 (language_id,)).fetchone()
+
     def events(self, session_id: str) -> list[sqlite3.Row]:
         return self.conn.execute("SELECT * FROM session_event WHERE session_id=? ORDER BY id", (session_id,)).fetchall()
 

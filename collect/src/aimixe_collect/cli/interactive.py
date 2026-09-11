@@ -44,6 +44,11 @@ def _language_state(app: App, row) -> tuple[str, str]:
     tags.append(f"{resources} resource(s)")
     if pending:
         tags.append(r.c(f"{pending} to review", "yellow"))
+    last = app.sessions.last_for_language(lid)
+    if last is not None:
+        tags.append(r.c(f"last: {_when(last['started_at'])} · {last['mode']}", "grey"))
+    else:
+        tags.append(r.c("never collected", "grey"))
     if pending:
         step = f"go through what is waiting ({pending} item(s) in the review queue)"
     elif resources == 0:
@@ -53,6 +58,26 @@ def _language_state(app: App, row) -> tuple[str, str]:
     else:
         step = "collect more, or view the existing collection"
     return "  ".join(tags), step
+
+
+def _when(iso: str) -> str:
+    """'today 14:02', 'yesterday', '3 days ago' or the date, from an ISO timestamp (UTC)."""
+    from datetime import datetime, timezone
+    try:
+        t = datetime.fromisoformat(iso)
+    except ValueError:
+        return iso[:10]
+    if t.tzinfo is None:
+        t = t.replace(tzinfo=timezone.utc)
+    local = t.astimezone()
+    days = (datetime.now(tz=local.tzinfo).date() - local.date()).days
+    if days == 0:
+        return f"today {local:%H:%M}"
+    if days == 1:
+        return "yesterday"
+    if days < 7:
+        return f"{days} days ago"
+    return f"{local:%Y-%m-%d}"
 
 
 def home_screen(app: App) -> list:
