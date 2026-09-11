@@ -43,8 +43,10 @@
   }
 
   // ------------------------------------------------------------------ navigation
+  function syncLayout() { $(".layout").classList.toggle("no-nav", $("#nav").classList.contains("hidden")); }
   function show(view) {
     state.view = view;
+    syncLayout();
     $$(".view").forEach((v) => v.classList.add("hidden"));
     $(`#view-${view}`).classList.remove("hidden");
     $$("#nav button").forEach((b) => b.classList.toggle("active", b.dataset.view === view));
@@ -75,6 +77,7 @@
     const data = await get(`/api/languages/${encodeURIComponent(id)}`);
     state.profileData = data;
     $("#nav").classList.remove("hidden");
+    syncLayout();
     $("#nav-lang").innerHTML = `${esc(data.profile.name)} <small>${esc(data.profile.iso639_3 ? "ISO 639-3 " + data.profile.iso639_3 : "local identifier " + data.profile.id)} · ${data.resource_count} resource(s)</small>`;
     $("#lang-select").value = id;
     show("profile");
