@@ -833,6 +833,7 @@ aimixe collect ui --no-browser    # only print the address</code></pre>
   <li>When you return to the page the job belongs to, it <b>re-attaches</b>: the form is filled in as you left it, and the log, the progress line and, once it is done, the result table are shown as if you had never left. The header says when it started and whether it is still running.</li>
   <li>When a job finishes while you are on another page, a short message appears ("Offline scan for zyn finished") and the counts in the sidebar and on the home page update.</li>
   <li>The <b>terminal</b> home screen lists sessions still in progress, whether they were started from the browser or from another terminal, so nothing runs unnoticed.</li>
+  <li><b>Several runs at once</b> are fine: an offline scan and an agent search, or runs for two languages, each get their own card and their own session. The database lets them write side by side; a file found by two runs is stored once and linked from both.</li>
 </ul>
 <div class="callout"><span class="dot"></span><p>A job belongs to the server process that started it. Stopping <code>aimixe collect ui</code> with Ctrl-C, or leaving the terminal interface with <code>q</code> when the web interface was started with <code>w</code>, ends the process; a run in progress is recorded as interrupted and can be resumed with <code>aimixe collect resume &lt;session-id&gt;</code> for offline scans and imports.</p></div>
 

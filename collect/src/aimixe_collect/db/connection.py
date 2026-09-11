@@ -10,7 +10,9 @@ SCHEMA_VERSION = 2
 
 def connect(path: Path) -> sqlite3.Connection:
     path.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(str(path))
+    # autocommit + WAL: several runs (a scan in the terminal, a download in the browser) can write at
+    # the same time; no statement ever holds the write lock while a download or extraction runs.
+    conn = sqlite3.connect(str(path), timeout=60, isolation_level=None)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     conn.execute("PRAGMA journal_mode = WAL")
