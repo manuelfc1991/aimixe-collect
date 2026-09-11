@@ -17,6 +17,10 @@ with `python3 --version` (Windows: `python --version`).
   your PATH, so `aimixe collect` works in PowerShell, cmd, or any shell. Alternatively run
   `python -m aimixe_collect ...` with `src` on `PYTHONPATH`.
 - Optional: `pdftotext` (poppler) improves PDF text extraction and is used when found.
+- **Windows without Python**: `python3 tools/build_windows_bundle.py` builds a portable zip
+  (Python's embeddable distribution plus this module). Unzip, double-click `aimixe-ui.cmd`
+  or run `aimixe collect` from a terminal in that folder. Built without a Windows machine,
+  so untested until someone runs it there.
 
 ## Run
 
