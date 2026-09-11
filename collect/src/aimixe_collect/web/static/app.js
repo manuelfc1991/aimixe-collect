@@ -272,15 +272,22 @@
   async function renderAgent() {
     const el = $("#view-agent");
     el.innerHTML = `<h1>Online Collection — Agent Search</h1><p class="muted">Planning queries from the language profile …</p>`;
-    const plan = await get(`/api/languages/${encodeURIComponent(state.lang)}/agent/plan`);
+    const [plan, prov] = await Promise.all([get(`/api/languages/${encodeURIComponent(state.lang)}/agent/plan`), get("/api/agent/provider")]);
     const lim = plan.limits;
     el.innerHTML = `<h1>Online Collection — Agent Search</h1>
-      <div class="card"><p>Agent provider: <b>${esc(plan.agent.name)}</b>${plan.agent.available ? "" : ` <span class="tag uncertain">not available (${esc(plan.agent.why)}); the rule-based agent is used</span>`} · Web search backends: ${plan.backends.map(esc).join(", ") || "<em>none configured</em>"}</p>
+      <div class="card"><p class="row">Agent provider:
+        <select id="agent-provider">${prov.choices.map((c) => `<option value="${esc(c.name)}" ${c.current ? "selected" : ""} ${c.installed ? "" : "disabled"}>${esc(c.name)} — ${esc(c.what)}${c.installed ? "" : " (not installed)"}</option>`).join("")}</select>
+        ${plan.agent.available ? "" : `<span class="tag uncertain">not available (${esc(plan.agent.why)}); the rule-based agent is used</span>`}
+        <span class="muted">· Web search backends: ${plan.backends.map(esc).join(", ") || "<em>none configured</em>"}</span></p>
+      <p class="muted">A model provider receives the language profile and the text of visited pages. The choice is saved to config.toml.</p>
       <p class="muted">Limits: ${lim.max_pages} pages, depth ${lim.max_depth}, ${lim.per_host} per host, ${lim.max_files} files, ${lim.max_rounds} rounds. Names and varieties discovered during the run feed later rounds and are proposed for review, never written to the profile.</p>
       <h3>Queries</h3>
       <table id="agent-queries"><tr><th></th><th>basis</th><th>query</th><th>why</th></tr>${plan.queries.map((q, i) => `<tr><td><input type="checkbox" checked data-i="${i}"></td><td>${esc(q.basis)}</td><td>${esc(q.text)}</td><td class="muted">${esc(q.rationale || "")}</td></tr>`).join("")}</table>
       <div class="row"><input id="agent-extra" placeholder="your own queries, separated by ;" size="60"><button id="agent-run" ${plan.backends.length ? "" : "disabled"}>Run</button></div></div>
       <pre id="agent-log" class="log hidden"></pre><div id="agent-result"></div>`;
+    $("#agent-provider").addEventListener("change", async (e) => {
+      try { await post("/api/agent/provider", { provider: e.target.value }); toast(`Agent provider: ${e.target.value}`); renderAgent(); } catch (err) { fail(err); }
+    });
     $("#agent-run").addEventListener("click", async () => {
       const queries = plan.queries.filter((q, i) => $(`input[data-i="${i}"]`, el).checked).map((q) => ({ text: q.text, basis: q.basis, rationale: q.rationale }));
       $("#agent-extra").value.split(";").map((s) => s.trim()).filter(Boolean).forEach((t) => queries.push({ text: t, basis: "user" }));

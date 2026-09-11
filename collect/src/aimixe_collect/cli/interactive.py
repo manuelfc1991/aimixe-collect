@@ -268,6 +268,10 @@ def agent_search(app: App, profile: Profile, assume_yes: bool = False) -> Sessio
     name, ok, why = svc.agent_status()
     r.heading(f"Agent Search – {profile.name} [{profile.iso639_3 or profile.id}]")
     r.out(f"Agent provider: {name}" + ("" if ok else f" — not available ({why}); the rule-based agent is used"))
+    if not assume_yes and r.ask_yes_no("Use a different agent provider?", default=False):
+        choose_agent_provider(app)
+        name, ok, why = svc.agent_status()
+        r.out(f"Agent provider: {name}" + ("" if ok else f" — not available ({why}); the rule-based agent is used"))
     backends = svc.backends()
     r.out("Web search backends: " + (", ".join(b.name for b in backends) or "none configured"))
     if not backends:
@@ -308,6 +312,28 @@ def agent_search(app: App, profile: Profile, assume_yes: bool = False) -> Sessio
     summary = app.collection_service.summary(run.session_id)
     print_summary(summary)
     return summary
+
+
+def choose_agent_provider(app: App) -> str | None:
+    """Pick the agent provider (rule-based or an installed model CLI) and save it to config.toml."""
+    choices = app.agent_service.choices()
+    labels = []
+    for c in choices:
+        mark = "● " if c["current"] else "  "
+        avail = "" if c["installed"] else "   (not installed on this machine)"
+        labels.append(f"{mark}{c['name']:12} {c['what']}{avail}")
+    labels.append("  Keep current")
+    idx = r.choose("Agent provider", labels)
+    if idx is None or idx == len(labels) - 1:
+        return None
+    chosen = choices[idx]
+    if not chosen["installed"]:
+        r.out(f"{chosen['name']} is not on PATH; the rule-based agent will be used until it is installed.")
+    if chosen["name"] != "rule_based":
+        r.out("Note: with a model provider the language profile and the text of visited pages are sent to that tool.")
+    app.agent_service.set_provider(chosen["name"])
+    r.out(f"Saved: provider = \"{chosen['name']}\" in {app.paths.config / 'config.toml'}")
+    return chosen["name"]
 
 
 # ------------------------------------------------------------------ §8 offline
@@ -502,5 +528,5 @@ def run_interactive(app: App, preset_language: str | None = None, assume_yes: bo
         return 0
 
 
-__all__ = ["run_interactive", "pick_language", "profile_step", "offline_collection", "run_import", "catalogue_search", "agent_search",
+__all__ = ["run_interactive", "pick_language", "profile_step", "offline_collection", "run_import", "catalogue_search", "agent_search", "choose_agent_provider",
            "print_summary", "run_review"]

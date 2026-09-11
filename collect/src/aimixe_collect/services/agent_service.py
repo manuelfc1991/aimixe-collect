@@ -46,6 +46,41 @@ class AgentService:
     def installed() -> list[tuple[str, bool, str]]:
         return installed_agents()
 
+    def choices(self) -> list[dict]:
+        """Selectable providers: the rule-based agent plus every known CLI tool, with install status."""
+        current = str(self.app.config.get("agent", "provider", "rule_based"))
+        out = [{"name": "rule_based", "installed": True, "what": "no model; queries and facts by rules, never leaves the machine",
+                "current": current == "rule_based"}]
+        for name, installed, what in installed_agents():
+            out.append({"name": name, "installed": installed, "what": what, "current": current == name})
+        return out
+
+    def set_provider(self, name: str) -> str:
+        """Select the agent provider and save it under [agent] in config.toml."""
+        known = {c["name"] for c in self.choices()}
+        if name not in known:
+            raise ValueError(f"unknown agent provider {name!r}; choose one of {', '.join(sorted(known))}")
+        import re
+        cfg = self.app.paths.config / "config.toml"
+        text = cfg.read_text(encoding="utf-8") if cfg.exists() else ""
+        line = f'provider = "{name}"'
+        if re.search(r"^\[agent\]", text, re.M):
+            block_start = re.search(r"^\[agent\]\s*$", text, re.M).end()
+            block_end = re.search(r"^\[", text[block_start:], re.M)
+            block = text[block_start: block_start + block_end.start()] if block_end else text[block_start:]
+            if re.search(r"^provider\s*=", block, re.M):
+                new_block = re.sub(r"^provider\s*=.*$", line, block, count=1, flags=re.M)
+            else:
+                new_block = "\n" + line + block
+            text = text[:block_start] + new_block + (text[block_start + block_end.start():] if block_end else "")
+        else:
+            text += f"\n[agent]\n{line}\n"
+        cfg.write_text(text, encoding="utf-8")
+        self.app.config.values.setdefault("agent", {})["provider"] = name
+        self._agent = None
+        self.app.log.write("agent.provider", provider=name)
+        return name
+
     def backends(self) -> list[WebSearchBackend]:
         names = list(self.app.config.get("agent", "search_backends", ["duckduckgo", "bing", "wikipedia"]) or [])
         out: list[WebSearchBackend] = []

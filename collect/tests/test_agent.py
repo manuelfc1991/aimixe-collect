@@ -5,6 +5,7 @@ import json
 import os
 import stat
 import unittest
+from unittest import mock
 from pathlib import Path
 
 from aimixe_collect.agent.base import AnalysisContext, Evidence
@@ -232,3 +233,27 @@ class AgentCliTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ProviderSelectionTests(unittest.TestCase):
+    def test_choices_and_persisted_selection(self):
+        with TempHome() as t:
+            svc = t.app.agent_service
+            names = [c["name"] for c in svc.choices()]
+            self.assertEqual(names[0], "rule_based")
+            self.assertIn("claude", names)
+            self.assertTrue([c for c in svc.choices() if c["current"]][0]["name"] == "rule_based")
+            svc.set_provider("ollama")
+            self.assertEqual(svc.agent().name, "ollama")
+            text = (t.app.paths.config / "config.toml").read_text()
+            self.assertIn('provider = "ollama"', text)
+            self.assertEqual(text.count("[agent]"), 1)
+            svc.set_provider("rule_based")
+            self.assertIn('provider = "rule_based"', (t.app.paths.config / "config.toml").read_text())
+            with self.assertRaises(ValueError):
+                svc.set_provider("nonexistent")
+            # the interactive chooser saves the pick
+            from aimixe_collect.cli import interactive
+            with mock.patch("builtins.input", side_effect=["2"]), contextlib.redirect_stdout(io.StringIO()):
+                chosen = interactive.choose_agent_provider(t.app)
+            self.assertEqual(chosen, names[1])

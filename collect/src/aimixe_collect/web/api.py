@@ -110,6 +110,14 @@ class Api:
             return self._catalogues(app, method, parts[1:], body)
         if head == "jobs":
             return self._jobs(app, method, parts[1:], body)
+        if head == "agent" and parts[1:] == ["provider"]:
+            if method == "GET":
+                return {"choices": app.agent_service.choices()}
+            if method == "POST":
+                try:
+                    return {"ok": True, "provider": app.agent_service.set_provider(str(body.get("provider", "")))}
+                except ValueError as exc:
+                    raise ApiError(400, str(exc))
         raise ApiError(404, f"no route for {method} /api/{'/'.join(parts)}")
 
     # ------------------------------------------------------------------ languages / profile
