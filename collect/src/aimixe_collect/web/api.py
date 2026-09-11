@@ -110,6 +110,30 @@ class Api:
             return self._catalogues(app, method, parts[1:], body)
         if head == "jobs":
             return self._jobs(app, method, parts[1:], body)
+        if head == "agent" and parts[1:] == ["engines"]:
+            if method == "GET":
+                return {"engines": app.agent_service.engines()}
+            if method == "POST":
+                try:
+                    if "enabled" in body:
+                        return {"ok": True, "enabled": app.agent_service.set_backends([str(n) for n in body["enabled"]])}
+                    path = app.agent_service.add_engine(body.get("engine") or {})
+                    return {"ok": True, "path": str(path)}
+                except ValueError as exc:
+                    raise ApiError(400, str(exc))
+        if head == "agent" and len(parts) == 3 and parts[1] == "engines" and method == "DELETE":
+            try:
+                return {"ok": True, "message": app.agent_service.remove_engine(parts[2])}
+            except ValueError as exc:
+                raise ApiError(404, str(exc))
+        if head == "agent" and len(parts) == 4 and parts[1] == "engines" and parts[3] == "test" and method == "GET":
+            try:
+                hits = app.agent_service.test_engine(parts[2], q.get("q", "language documentation"))
+            except ValueError as exc:
+                raise ApiError(404, str(exc))
+            except Exception as exc:
+                raise ApiError(502, f"{parts[2]}: {exc}")
+            return {"hits": [{"url": h.url, "title": h.title, "snippet": h.snippet} for h in hits]}
         if head == "agent" and parts[1:] == ["provider"]:
             if method == "GET":
                 return {"choices": app.agent_service.choices()}

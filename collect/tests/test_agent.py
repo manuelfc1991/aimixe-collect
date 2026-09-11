@@ -228,7 +228,7 @@ class AgentCliTests(unittest.TestCase):
                 code = cli_main.main(["nst", "--yes", "--agent", "--home", str(t.home)])
             self.assertEqual(code, 0)
             self.assertIn("Agent Search", out.getvalue())
-            self.assertIn("Configure search_backends", out.getvalue())
+            self.assertIn("No usable search engine", out.getvalue())
 
 
 if __name__ == "__main__":

@@ -23,7 +23,7 @@ from . import interactive, render as r
 from .render import Abort
 from .review_ui import run_review
 
-SUBCOMMANDS = ("import", "history", "review", "resume", "catalogue", "ui")
+SUBCOMMANDS = ("import", "history", "review", "resume", "catalogue", "search", "ui")
 
 EXIT_OK, EXIT_CHECK_FAILED, EXIT_NOT_EVALUABLE, EXIT_INVALID, EXIT_CONFIG, EXIT_INTERNAL = 0, 10, 20, 40, 50, 70
 
@@ -42,6 +42,7 @@ def build_parser() -> argparse.ArgumentParser:
   aimixe collect review               accept or reject uncertain resources and proposed facts
   aimixe collect history              past collection sessions
   aimixe collect catalogue list       catalogue providers (add | remove)
+  aimixe collect search list          web search engines for Agent Search (use | add | remove | test)
   aimixe collect ui                   the same, in your browser
 in any menu: number or text to choose, b = back, q = quit, ? = help.""")
     from .. import __version__
@@ -84,6 +85,19 @@ def build_sub_parser() -> argparse.ArgumentParser:
 
     res = sub.add_parser("resume", help="re-run an interrupted session with the same parameters", parents=[common])
     res.add_argument("session_id")
+
+    se = sub.add_parser("search", help="web search engines used by Agent Search", parents=[common])
+    sesub = se.add_subparsers(dest="search_command", required=True)
+    sesub.add_parser("list", help="all engines, which are enabled, which need a key", parents=[common])
+    sadd = sesub.add_parser("add", help="add an engine (guided, or from a TOML file)", parents=[common])
+    sadd.add_argument("--file", help="TOML file describing the engine")
+    srm = sesub.add_parser("remove", help="remove an added engine or unselect a built-in one", parents=[common])
+    srm.add_argument("name")
+    stest = sesub.add_parser("test", help="run one query against an engine and show the hits", parents=[common])
+    stest.add_argument("name")
+    stest.add_argument("query", nargs="?", default="language documentation")
+    suse = sesub.add_parser("use", help="choose the enabled engines, in order", parents=[common])
+    suse.add_argument("names", nargs="*", help="engine names in order; none = interactive picker")
 
     ui = sub.add_parser("ui", help="local web interface on the same services (Phase 5)", parents=[common])
     ui.add_argument("--host", default="127.0.0.1")
@@ -236,7 +250,83 @@ def _run_sub(argv: list[str]) -> int:
 
         if ns.command == "catalogue":
             return _catalogue(app, ns)
+        if ns.command == "search":
+            return _search(app, ns)
     return EXIT_INTERNAL
+
+
+def _search(app: App, ns) -> int:
+    svc = app.agent_service
+    if ns.search_command == "list":
+        rows = []
+        for e in svc.engines():
+            state = "enabled" if e["enabled"] else ""
+            if not e["available"]:
+                state = (state + " · " if state else "") + "needs key"
+            rows.append([e["name"], e["kind"], state, e["region"], ("" if e["verified"] else "unverified · ") + e["what"]])
+        r.table(rows, headers=["name", "kind", "state", "region", "what"])
+        r.note("\nEnabled engines are asked in the order listed. aimixe collect search use <names…> changes it; "
+               "search test <name> tries one; search add adds your own.")
+        for err in svc.engine_registry().errors:
+            r.err(f"! {err}")
+        return EXIT_OK
+    if ns.search_command == "test":
+        try:
+            hits = svc.test_engine(ns.name, ns.query)
+        except ValueError as exc:
+            r.err(str(exc))
+            return EXIT_INVALID
+        except Exception as exc:
+            r.err(f"{ns.name}: {exc}")
+            return EXIT_CHECK_FAILED
+        if not hits:
+            r.out(f"{ns.name}: no hits for {ns.query!r}")
+            return EXIT_CHECK_FAILED
+        for h in hits:
+            r.out(f"  {h.title[:70] or '(no title)'}\n    {r.c(h.url, 'grey')}")
+        return EXIT_OK
+    if ns.search_command == "use":
+        try:
+            names = svc.set_backends(ns.names) if ns.names else interactive.choose_search_engines(app)
+        except ValueError as exc:
+            r.err(str(exc))
+            return EXIT_INVALID
+        if names:
+            r.out("Enabled: " + ", ".join(names))
+        return EXIT_OK
+    if ns.search_command == "remove":
+        try:
+            r.out(svc.remove_engine(ns.name))
+        except ValueError as exc:
+            r.err(str(exc))
+            return EXIT_INVALID
+        return EXIT_OK
+    if ns.search_command == "add":
+        if ns.file:
+            import tomllib
+            path = Path(ns.file).expanduser()
+            if not path.exists():
+                r.err(f"Not found: {path}")
+                return EXIT_INVALID
+            data = tomllib.loads(path.read_text(encoding="utf-8"))
+            cfgs = data.get("engine") if isinstance(data.get("engine"), list) else [data]
+        else:
+            cfg = interactive.search_engine_add_wizard()
+            if cfg is None:
+                return EXIT_OK
+            cfgs = [cfg]
+        for cfg in cfgs:
+            try:
+                written = svc.add_engine(cfg)
+            except ValueError as exc:
+                r.err(f"Invalid engine: {exc}")
+                return EXIT_INVALID
+            r.out(f"Search engine {cfg['name']} saved to {written}")
+            if r.ask_yes_no(f"Enable {cfg['name']} for Agent Search now?", default=True):
+                current = list(app.config.get("agent", "search_backends", []) or [])
+                svc.set_backends(current + [cfg["name"]] if cfg["name"] not in current else current)
+        return EXIT_OK
+    return EXIT_INVALID
 
 
 def _catalogue(app: App, ns) -> int:

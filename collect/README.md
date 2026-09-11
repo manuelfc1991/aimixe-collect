@@ -87,6 +87,28 @@ names, and a Glottolog 5.3 / CLDR extract (CC-BY-4.0, see `reference-SOURCES.md`
   Wikipedia API. DuckDuckGo sometimes answers with a bot check; the run reports it and the
   other backends carry on. A keyed search API can be configured under `[agent.search_api]`.
 - The web interface has no login; it binds to 127.0.0.1 only.
+
+## Search engines for Agent Search
+
+Engines are data, not code: `src/aimixe_collect/data/search-engines.toml` ships DuckDuckGo,
+Bing, Wikipedia, SearXNG, Brave, Google Programmable Search, SerpAPI, Baidu, Sogou and
+Yandex XML; put your own in `~/.aimixe/search-engines/<name>.toml`. Three kinds: `json`
+(an API; dotted paths pick url/title/snippet), `rss` (RSS/Atom results) and `html` (a
+results page; a regular expression picks the links). Where DuckDuckGo, Google or Wikipedia
+are unreachable, the practical choices are Bing's RSS feed, a keyed API such as SerpAPI
+with `engine=baidu`, or a SearXNG instance you run yourself.
+
+```bash
+aimixe collect search list                 # every engine: enabled, needs key, region, verified
+aimixe collect search use bing searxng     # which engines Agent Search asks, in order
+aimixe collect search test baidu "Zhuang language"
+aimixe collect search add                  # guided; or --file my-engine.toml
+```
+
+API keys go under `[agent.search_keys]` in `config.toml` (`brave = "…"`, `google_cse = "…"`,
+`google_cse_cx = "…"`) or in the environment as `AIMIXE_SEARCH_KEY_<NAME>`. The Agent
+Search screen and the web page offer the same picker. Entries marked unverified could not
+be exercised from the build machine; `search test` tells you whether one works for you.
 - Tested on Linux. macOS should behave the same; on Windows use the `pip install` route
   (the `bin/aimixe` script is a Unix shell script). Not yet verified on Windows.
 

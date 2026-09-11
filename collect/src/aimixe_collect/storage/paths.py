@@ -31,6 +31,10 @@ class Paths:
         return self.root / "catalogues"
 
     @property
+    def search_engines(self) -> Path:
+        return self.root / "search-engines"
+
+    @property
     def database_dir(self) -> Path:
         return self.root / "database"
 
@@ -55,7 +59,7 @@ class Paths:
         return self.root / "logs"
 
     def ensure(self) -> None:
-        for d in (self.config, self.catalogues, self.database_dir, self.languages,
+        for d in (self.config, self.catalogues, self.search_engines, self.database_dir, self.languages,
                   self.cache, self.temp, self.logs):
             d.mkdir(parents=True, exist_ok=True)
 

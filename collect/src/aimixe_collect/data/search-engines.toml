@@ -1,0 +1,146 @@
+# Web search engines for Agent Search. Data, not code: add your own in
+# ~/.aimixe/search-engines/<name>.toml with the same shape, or `aimixe collect search add`.
+#
+# kind:
+#   json   GET `url`, read JSON; `items` is the dotted path to the result list, `fields`
+#          map url/title/snippet (dotted paths; `[]` maps over a list). `url_from_title`
+#          builds the URL from the title when the API returns none (Wikipedia).
+#   rss    GET `url`, parse <item> elements (RSS) or <entry> (Atom).
+#   html   GET `url`, apply `link_pattern` (a regex whose first group is the URL; an
+#          optional second group is the title). `unwrap_param` unwraps redirect links
+#          (DuckDuckGo's ?uddg=). Best effort: engines change their markup and many
+#          answer automated clients with a bot check, detected by `blocked_pattern`.
+#
+# Template placeholders: {q} the query (URL-encoded), {raw} unencoded, {key} the API key,
+# {cx} an extra id (Google), {lang} a language code. Keys come from
+# [agent.search_keys] in config.toml (name = "…") or the environment variable
+# AIMIXE_SEARCH_KEY_<NAME>. `strip_quotes` removes "…" phrase quotes for engines that
+# dislike them. `region` and `verified` are notes for the person choosing.
+
+[[engine]]
+name = "duckduckgo"
+kind = "html"
+url = "https://html.duckduckgo.com/html/?q={q}"
+link_pattern = '<a[^>]+class="result__a"[^>]+href="([^"]+)"[^>]*>(.*?)</a>'
+unwrap_param = "uddg"
+blocked_pattern = "anomaly|challenge"
+what = "DuckDuckGo HTML endpoint; no key; sometimes answers with a bot check"
+region = "global (blocked in some countries)"
+verified = true
+
+[[engine]]
+name = "bing"
+kind = "rss"
+url = "https://www.bing.com/search?format=rss&q={q}"
+what = "Bing RSS feed; no key; few results per query"
+region = "global (works in China)"
+verified = true
+
+[[engine]]
+name = "wikipedia"
+kind = "json"
+url = "https://{lang}.wikipedia.org/w/api.php?action=query&list=search&format=json&srlimit=8&srsearch={q}"
+items = "query.search"
+strip_quotes = true
+lang = "en"
+url_from_title = "https://{lang}.wikipedia.org/wiki/{title}"
+what = "Wikipedia article search; reliable; set lang to zh, ru, hi … for other editions"
+region = "global (blocked in some countries)"
+verified = true
+[engine.fields]
+title = "title"
+snippet = "snippet"
+
+[[engine]]
+name = "searxng"
+kind = "json"
+url = "http://localhost:8080/search?q={q}&format=json"
+items = "results"
+what = "SearXNG meta-search (JSON): run your own instance (docker run searxng/searxng) or point `url` at one you can reach that allows format=json — the usual answer where big engines are blocked"
+region = "wherever your instance is; self-hostable"
+verified = false
+[engine.fields]
+url = "url"
+title = "title"
+snippet = "content"
+
+[[engine]]
+name = "brave"
+kind = "json"
+url = "https://api.search.brave.com/res/v1/web/search?q={q}&count=10"
+items = "web.results"
+needs_key = true
+key_header = "X-Subscription-Token"
+what = "Brave Search API; free tier with a key from brave.com/search/api"
+region = "global"
+verified = false
+[engine.fields]
+url = "url"
+title = "title"
+snippet = "description"
+
+[[engine]]
+name = "google_cse"
+kind = "json"
+url = "https://www.googleapis.com/customsearch/v1?key={key}&cx={cx}&q={q}"
+items = "items"
+needs_key = true
+needs_cx = true
+what = "Google Programmable Search JSON API; needs an API key and a search-engine id (cx)"
+region = "global (blocked in China)"
+verified = false
+[engine.fields]
+url = "link"
+title = "title"
+snippet = "snippet"
+
+[[engine]]
+name = "serpapi"
+kind = "json"
+url = "https://serpapi.com/search.json?engine=google&q={q}&api_key={key}"
+items = "organic_results"
+needs_key = true
+what = "SerpAPI (Google, Baidu, Yandex … via one key); set engine=baidu in the url for Baidu results"
+region = "global"
+verified = false
+[engine.fields]
+url = "link"
+title = "title"
+snippet = "snippet"
+
+[[engine]]
+name = "baidu"
+kind = "html"
+url = "https://www.baidu.com/s?wd={q}&ie=utf-8"
+link_pattern = '<h3[^>]*>\s*<a[^>]+href="(https?://www\.baidu\.com/link\?url=[^"]+)"[^>]*>(.*?)</a>'
+blocked_pattern = "安全验证|验证码|captcha"
+strip_quotes = true
+what = "Baidu result page (China). Best effort: markup may change and a verification page may appear"
+region = "China"
+verified = false
+
+[[engine]]
+name = "sogou"
+kind = "html"
+url = "https://www.sogou.com/web?query={q}"
+link_pattern = '<h3[^>]*>\s*<a[^>]+href="(/link\?url=[^"]+)"[^>]*>(.*?)</a>'
+base = "https://www.sogou.com"
+blocked_pattern = "验证码|captcha"
+strip_quotes = true
+what = "Sogou result page (China). Best effort, unverified from outside China"
+region = "China"
+verified = false
+
+[[engine]]
+name = "yandex_xml"
+kind = "rss"
+url = "https://yandex.com/search/xml?user={cx}&key={key}&query={q}"
+needs_key = true
+needs_cx = true
+what = "Yandex XML search API (needs user id as cx and key); result <doc> elements"
+region = "Russia and neighbours"
+verified = false
+item_tag = "doc"
+link_tag = "url"
+title_tag = "title"
+snippet_tag = "passage"

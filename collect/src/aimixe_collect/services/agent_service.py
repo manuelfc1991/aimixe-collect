@@ -10,7 +10,8 @@ from ..agent.base import AgentProvider, AgentQuery
 from ..agent.registry import build_agent, installed_agents
 from ..discovery.agent_search import AgentSearchReport, AgentSearchRunner, SearchLimits
 from ..discovery.candidate import PipelineOutcome
-from ..discovery.web import BUILTIN_BACKENDS, ConfigurableSearchBackend, WebSearchBackend
+from ..discovery.search_engines import KINDS, EngineBackend, EngineEntry, SearchEngineRegistry
+from ..discovery.web import WebSearchBackend
 from ..profile.model import Profile
 from ..progress import Progress
 
@@ -60,38 +61,96 @@ class AgentService:
         known = {c["name"] for c in self.choices()}
         if name not in known:
             raise ValueError(f"unknown agent provider {name!r}; choose one of {', '.join(sorted(known))}")
-        import re
-        cfg = self.app.paths.config / "config.toml"
-        text = cfg.read_text(encoding="utf-8") if cfg.exists() else ""
-        line = f'provider = "{name}"'
-        if re.search(r"^\[agent\]", text, re.M):
-            block_start = re.search(r"^\[agent\]\s*$", text, re.M).end()
-            block_end = re.search(r"^\[", text[block_start:], re.M)
-            block = text[block_start: block_start + block_end.start()] if block_end else text[block_start:]
-            if re.search(r"^provider\s*=", block, re.M):
-                new_block = re.sub(r"^provider\s*=.*$", line, block, count=1, flags=re.M)
-            else:
-                new_block = "\n" + line + block
-            text = text[:block_start] + new_block + (text[block_start + block_end.start():] if block_end else "")
-        else:
-            text += f"\n[agent]\n{line}\n"
-        cfg.write_text(text, encoding="utf-8")
+        self._write_agent_key("provider", f'"{name}"')
         self.app.config.values.setdefault("agent", {})["provider"] = name
         self._agent = None
         self.app.log.write("agent.provider", provider=name)
         return name
 
-    def backends(self) -> list[WebSearchBackend]:
+    # ------------------------------------------------------------ search engines
+    def engine_registry(self) -> SearchEngineRegistry:
         names = list(self.app.config.get("agent", "search_backends", ["duckduckgo", "bing", "wikipedia"]) or [])
-        out: list[WebSearchBackend] = []
-        for n in names:
-            cls = BUILTIN_BACKENDS.get(n)
-            if cls:
-                out.append(cls())
-        custom = self.app.config.get("agent", "search_api")
-        if isinstance(custom, dict) and custom.get("url"):
-            out.append(ConfigurableSearchBackend(custom))
+        keys = self.app.config.get("agent", "search_keys", {}) or {}
+        return SearchEngineRegistry(self.app.paths.search_engines, names, {k: str(v) for k, v in keys.items()})
+
+    def backends(self) -> list[WebSearchBackend]:
+        """Enabled engines that are usable now (an engine without its key is left out)."""
+        return [b for b in self.engine_registry().enabled() if b.available()[0]]
+
+    def engines(self) -> list[dict]:
+        reg = self.engine_registry()
+        out = []
+        for e in reg.list():
+            ok, why = e.backend.available()
+            out.append({"name": e.name, "kind": e.backend.kind, "enabled": e.enabled, "available": ok, "why": why,
+                        "what": e.backend.description, "region": e.backend.region, "verified": e.backend.verified,
+                        "source": e.source, "order": reg.enabled_names.index(e.name) if e.name in reg.enabled_names else None})
+        out.sort(key=lambda d: (d["order"] is None, d["order"] or 0, d["name"]))
         return out
+
+    def set_backends(self, names: list[str]) -> list[str]:
+        """Choose which engines Agent Search uses, in order; saved under [agent] in config.toml."""
+        reg = self.engine_registry()
+        unknown = [n for n in names if n not in reg.entries]
+        if unknown:
+            raise ValueError("unknown search engine(s): " + ", ".join(unknown))
+        self._write_agent_key("search_backends", "[" + ", ".join(f'"{n}"' for n in names) + "]")
+        self.app.config.values.setdefault("agent", {})["search_backends"] = list(names)
+        self.app.log.write("search.backends", names=names)
+        return list(names)
+
+    def add_engine(self, cfg: dict) -> Path:
+        import re
+        name = re.sub(r"[^a-z0-9_-]+", "_", str(cfg.get("name", "")).strip().lower()).strip("_")
+        if not name:
+            raise ValueError("a search engine needs a name")
+        cfg = dict(cfg, name=name)
+        EngineBackend(cfg)                        # validates kind and url
+        from .catalogue_service import _to_toml
+        path = self.app.paths.search_engines / f"{name}.toml"
+        path.write_text(_to_toml({k: v for k, v in cfg.items() if v not in (None, "")}), encoding="utf-8")
+        self.app.log.write("search.add", name=name, path=str(path))
+        return path
+
+    def remove_engine(self, name: str) -> str:
+        reg = self.engine_registry()
+        e = reg.get(name)
+        if e is None:
+            raise ValueError(f"no search engine named {name!r}")
+        if e.source != "builtin":
+            Path(e.source).unlink(missing_ok=True)
+            msg = f"removed {e.source}"
+        else:
+            msg = f"built-in engine {name} cannot be deleted; it is simply not selected"
+        if name in reg.enabled_names:
+            self.set_backends([n for n in reg.enabled_names if n != name])
+            msg += "; taken out of the enabled list"
+        return msg
+
+    def test_engine(self, name: str, query: str = "language documentation") -> list:
+        e = self.engine_registry().get(name)
+        if e is None:
+            raise ValueError(f"no search engine named {name!r}")
+        return e.backend.search(query, limit=5)
+
+    def _write_agent_key(self, key: str, toml_value: str) -> None:
+        import re
+        cfg = self.app.paths.config / "config.toml"
+        text = cfg.read_text(encoding="utf-8") if cfg.exists() else ""
+        line = f"{key} = {toml_value}"
+        m = re.search(r"^\[agent\]\s*$", text, re.M)
+        if m:
+            start = m.end()
+            nxt = re.search(r"^\[", text[start:], re.M)
+            block = text[start: start + nxt.start()] if nxt else text[start:]
+            if re.search(rf"^{key}\s*=", block, re.M):
+                block = re.sub(rf"^{key}\s*=.*$", line, block, count=1, flags=re.M)
+            else:
+                block = "\n" + line + block
+            text = text[:start] + block + (text[start + nxt.start():] if nxt else "")
+        else:
+            text += f"\n[agent]\n{line}\n"
+        cfg.write_text(text, encoding="utf-8")
 
     def limits(self) -> SearchLimits:
         g = lambda k, d: self.app.config.get("agent", k, d)

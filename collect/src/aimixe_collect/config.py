@@ -29,9 +29,11 @@ DEFAULT_CONFIG: dict[str, Any] = {
         # Agent provider: rule_based (no model) | claude | codex | gemini | agy | qwen | ollama | llm | custom.
         # A custom or overridden command goes in [agent.cli]: command = "tool --flag {prompt}".
         "provider": "rule_based",
-        # Web search backends for Agent Search, in order. Built in: duckduckgo, bing, wikipedia.
-        # A keyed JSON search API can be added as [agent.search_api] with url/items/fields.
+        # Web search engines for Agent Search, in order. `aimixe collect search list` shows all,
+        # including ones you add in ~/.aimixe/search-engines/*.toml (Baidu, SearXNG, Brave, Google …).
         "search_backends": ["duckduckgo", "bing", "wikipedia"],
+        # API keys for engines that need one: brave = "…", google_cse = "…", google_cse_cx = "…"
+        "search_keys": {},
         "max_queries": 16,
         "hits_per_query": 8,
         "max_pages": 40,
@@ -144,7 +146,7 @@ def _default_config_text() -> str:
         "review_at = 30\n\n"
         "[agent]\n"
         'provider = "rule_based"   # rule_based | claude | codex | gemini | agy | qwen | ollama | llm | custom\n'
-        'search_backends = ["duckduckgo", "bing", "wikipedia"]\n'
+        'search_backends = ["duckduckgo", "bing", "wikipedia"]   # aimixe collect search list\n'
         "max_queries = 16\n"
         "hits_per_query = 8\n"
         "max_pages = 40\n"
@@ -152,7 +154,8 @@ def _default_config_text() -> str:
         "per_host = 6\n"
         "max_rounds = 2\n"
         "max_files = 40\n"
-        '# [agent.cli]\n# command = "my_tool --quiet {prompt}"\n\n'
+        '# [agent.cli]\n# command = "my_tool --quiet {prompt}"\n'
+        '# [agent.search_keys]\n# brave = "…"          # engines that need a key\n\n'
         "[online]\n"
         "max_download_mb = 500\n"
         "max_results_per_provider = 25\n"

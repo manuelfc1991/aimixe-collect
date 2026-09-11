@@ -406,9 +406,15 @@ def agent_search(app: App, profile: Profile, assume_yes: bool = False) -> Sessio
         name, ok, why = svc.agent_status()
         r.out(f"Agent provider: {name}" + ("" if ok else f" — not available ({why}); the rule-based agent is used"))
     backends = svc.backends()
-    r.out("Web search backends: " + (", ".join(b.name for b in backends) or "none configured"))
+    r.out("Web search engines: " + (", ".join(b.name for b in backends) or r.c("none usable", "yellow")))
+    if not assume_yes and r.ask_yes_no("Change the search engines?", default=not backends,
+                                       help="Pick which engines Agent Search asks, in order. Engines that need an API key "
+                                            "show what to set. Add your own with: aimixe collect search add"):
+        choose_search_engines(app)
+        backends = svc.backends()
+        r.out("Web search engines: " + (", ".join(b.name for b in backends) or r.c("none usable", "yellow")))
     if not backends:
-        r.out("Configure search_backends under [agent] in config.toml.")
+        r.out("No usable search engine. Add or enable one: aimixe collect search list | add | test <name>")
         return None
     board = r.ProgressBoard()
     runner = svc.runner(profile, backends, progress=Progress(board.handle))
@@ -467,6 +473,80 @@ def choose_agent_provider(app: App) -> str | None:
     app.agent_service.set_provider(chosen["name"])
     r.out(f"Saved: provider = \"{chosen['name']}\" in {app.paths.config / 'config.toml'}")
     return chosen["name"]
+
+
+def choose_search_engines(app: App) -> list[str] | None:
+    """Pick the engines Agent Search uses (numbers in order); saved to config.toml."""
+    engines = app.agent_service.engines()
+    r.heading("Search engines")
+    for i, e in enumerate(engines, 1):
+        mark = r.c("●", "green") if e["enabled"] else " "
+        avail = "" if e["available"] else r.c(f"  ⚠ {e['why']}", "yellow")
+        flag = "" if e["verified"] else r.c("  (unverified)", "grey")
+        r.out(f"{mark}{i:2}. {e['name']:12} {r.c(e['kind'], 'grey')}  {e['what']}{flag}{avail}")
+        if e["region"]:
+            r.hint(f"region: {e['region']}", indent=6)
+    r.out()
+    r.note("  Enter the numbers to use, in the order to ask them (e.g. 3 1 2). Blank keeps the current choice.")
+    ans = r.prompt("Engines:", help="Numbers separated by spaces or commas. An engine missing its key is skipped at run time "
+                                     "until the key is set under [agent.search_keys] in config.toml.")
+    if not ans:
+        return None
+    picks = []
+    for tok in ans.replace(",", " ").split():
+        if tok.isdigit() and 1 <= int(tok) <= len(engines):
+            picks.append(engines[int(tok) - 1]["name"])
+        elif tok in {e["name"] for e in engines}:
+            picks.append(tok)
+    if not picks:
+        r.out("Nothing recognised; keeping the current choice.")
+        return None
+    app.agent_service.set_backends(picks)
+    r.out(f"Saved: search_backends = {picks} in {app.paths.config / 'config.toml'}")
+    return picks
+
+
+def search_engine_add_wizard() -> dict | None:
+    r.heading("Add a search engine")
+    name = r.prompt("Name (short, e.g. my_searxng):")
+    if not name:
+        return None
+    kinds = ["json — a JSON API (SearXNG, Brave, Google Programmable Search, SerpAPI …)",
+             "rss — an RSS or Atom feed of results",
+             "html — a results web page, links picked out with a regular expression (best effort)"]
+    kind = ["json", "rss", "html"][r.choose("Kind", kinds)]
+    r.out("URL template. Placeholders: {q} the query, {key} an API key, {cx} an extra id, {lang} a language code.")
+    url = r.prompt("URL template:")
+    if not url:
+        return None
+    cfg: dict = {"name": name, "kind": kind, "url": url}
+    what = r.prompt("Short description (where it works, who runs it):")
+    if what:
+        cfg["what"] = what
+    if r.ask_yes_no("Does it need an API key?", default=False):
+        cfg["needs_key"] = True
+        hdr = r.prompt("Header name for the key, if it is sent as a header (blank when {key} is in the URL):")
+        if hdr:
+            cfg["key_header"] = hdr
+        r.note(f"  Put the key under [agent.search_keys] in config.toml as {name} = \"…\"")
+    if kind == "json":
+        cfg["items"] = r.prompt("Dotted path to the result list (e.g. results, web.results; blank for the root):")
+        fields = {}
+        for key, hint in (("url", "result URL"), ("title", "title"), ("snippet", "snippet/description")):
+            v = r.prompt(f"Path for {hint} (blank to skip):")
+            if v:
+                fields[key] = v
+        cfg["fields"] = fields
+    elif kind == "html":
+        pat = r.prompt("Regular expression: first group = URL, optional second group = title (blank for every link):")
+        if pat:
+            cfg["link_pattern"] = pat
+        blocked = r.prompt("Text that marks a bot-check page (optional, e.g. captcha|验证码):")
+        if blocked:
+            cfg["blocked_pattern"] = blocked
+    if r.ask_yes_no("Remove phrase quotes from queries for this engine?", default=False):
+        cfg["strip_quotes"] = True
+    return cfg
 
 
 # ------------------------------------------------------------------ §8 offline
@@ -690,5 +770,5 @@ def run_interactive(app: App, preset_language: str | None = None, assume_yes: bo
         return 0
 
 
-__all__ = ["run_interactive", "pick_language", "profile_step", "offline_collection", "run_import", "catalogue_search", "agent_search", "choose_agent_provider",
+__all__ = ["run_interactive", "pick_language", "profile_step", "offline_collection", "run_import", "catalogue_search", "agent_search", "choose_agent_provider", "choose_search_engines", "search_engine_add_wizard",
            "print_summary", "run_review"]

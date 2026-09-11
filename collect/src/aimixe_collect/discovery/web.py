@@ -1,8 +1,8 @@
-"""Web access for Agent Search: search backends, page fetching, link extraction, robots.
+"""Web access for Agent Search: page fetching, link extraction, robots.
 
-Backends implement ``search(query, limit) -> [WebHit]``. Built in: DuckDuckGo (HTML
-endpoint), Bing (RSS), Wikipedia (article search), and a configurable JSON search API for
-users with a key. None of this is tied to a model provider.
+Search engines live in ``discovery/search_engines.py`` and are described by data
+(``data/search-engines.toml`` plus the user's own files). ``WebSearchBackend`` is the
+interface: ``search(query, limit) -> [WebHit]``.
 """
 from __future__ import annotations
 
@@ -51,87 +51,34 @@ class WebSearchBackend:
         raise NotImplementedError
 
 
+def builtin_backend(name: str) -> WebSearchBackend:
+    """A built-in engine by name (duckduckgo, bing, wikipedia …), from data/search-engines.toml."""
+    from .search_engines import EngineBackend, load_builtin
+    for cfg in load_builtin():
+        if cfg["name"] == name:
+            return EngineBackend(cfg)
+    raise KeyError(name)
+
+
 class DuckDuckGoBackend(WebSearchBackend):
-    name = "duckduckgo"
+    def __init__(self) -> None:
+        self._b = builtin_backend("duckduckgo")
+        self.name = self._b.name
 
     def search(self, query: str, limit: int = 10) -> list[WebHit]:
-        page = http.get_text("https://html.duckduckgo.com/html/?q=" + http.q(query), use_cache=False)
-        if "result__a" not in page and re.search(r"anomaly|challenge|bots? ", page, re.I):
-            raise http.HttpError("duckduckgo: bot check page returned (HTTP 202); try later or rely on bing/wikipedia")
-        hits: list[WebHit] = []
-        for m in re.finditer(r'<a[^>]+class="result__a"[^>]+href="([^"]+)"[^>]*>(.*?)</a>(.*?)(?=<a[^>]+class="result__a"|$)',
-                             page, re.S):
-            raw, title, rest = m.group(1), m.group(2), m.group(3)
-            url = raw
-            u = urllib.parse.urlparse(raw if raw.startswith("http") else "https:" + raw)
-            qs = urllib.parse.parse_qs(u.query)
-            if "uddg" in qs:
-                url = qs["uddg"][0]
-            sn = re.search(r'class="result__snippet"[^>]*>(.*?)</a>', rest, re.S)
-            hits.append(WebHit(url=html.unescape(url), title=_clean(title), snippet=_clean(sn.group(1)) if sn else "",
-                               backend=self.name, query=query))
-            if len(hits) >= limit:
-                break
-        return hits
+        return self._b.search(query, limit)
 
 
-class BingRssBackend(WebSearchBackend):
-    name = "bing"
-
-    def search(self, query: str, limit: int = 10) -> list[WebHit]:
-        xml = http.get_text("https://www.bing.com/search?format=rss&q=" + http.q(query), use_cache=False)
-        hits = []
-        for item in re.findall(r"<item>(.*?)</item>", xml, re.S):
-            link = re.search(r"<link>(.*?)</link>", item, re.S)
-            title = re.search(r"<title>(.*?)</title>", item, re.S)
-            desc = re.search(r"<description>(.*?)</description>", item, re.S)
-            if link:
-                hits.append(WebHit(url=html.unescape(link.group(1).strip()), title=_clean(title.group(1)) if title else "",
-                                   snippet=_clean(desc.group(1)) if desc else "", backend=self.name, query=query))
-            if len(hits) >= limit:
-                break
-        return hits
+class BingRssBackend(DuckDuckGoBackend):
+    def __init__(self) -> None:
+        self._b = builtin_backend("bing")
+        self.name = self._b.name
 
 
-class WikipediaBackend(WebSearchBackend):
-    name = "wikipedia"
-
-    def search(self, query: str, limit: int = 5) -> list[WebHit]:
-        data = http.get_json("https://en.wikipedia.org/w/api.php?action=query&list=search&format=json&srlimit="
-                             f"{limit}&srsearch=" + http.q(query.replace('"', "")), use_cache=False)
-        hits = []
-        for s in data.get("query", {}).get("search", []):
-            title = s.get("title", "")
-            hits.append(WebHit(url="https://en.wikipedia.org/wiki/" + urllib.parse.quote(title.replace(" ", "_")),
-                               title=title, snippet=_clean(s.get("snippet", "")), backend=self.name, query=query))
-        return hits
-
-
-class ConfigurableSearchBackend(WebSearchBackend):
-    """A JSON search API from config: url template with {q}, items path, url/title/snippet paths."""
-
-    def __init__(self, cfg: dict[str, Any]):
-        from ..catalogues.configurable import path_get
-        self._get = path_get
-        self.cfg = cfg
-        self.name = cfg.get("name", "custom_search")
-
-    def search(self, query: str, limit: int = 10) -> list[WebHit]:
-        data = http.get_json(self.cfg["url"].format(q=http.q(query)), use_cache=True)
-        items = self._get(data, self.cfg.get("items", "")) or []
-        f = self.cfg.get("fields", {})
-        hits = []
-        for it in items[:limit]:
-            url = self._get(it, f.get("url", "url"))
-            if url:
-                hits.append(WebHit(url=str(url), title=str(self._get(it, f.get("title", "title")) or ""),
-                                   snippet=str(self._get(it, f.get("snippet", "snippet")) or ""), backend=self.name, query=query))
-        return hits
-
-
-BUILTIN_BACKENDS: dict[str, type[WebSearchBackend]] = {
-    "duckduckgo": DuckDuckGoBackend, "bing": BingRssBackend, "wikipedia": WikipediaBackend,
-}
+class WikipediaBackend(DuckDuckGoBackend):
+    def __init__(self) -> None:
+        self._b = builtin_backend("wikipedia")
+        self.name = self._b.name
 
 
 # ---------------------------------------------------------------- pages

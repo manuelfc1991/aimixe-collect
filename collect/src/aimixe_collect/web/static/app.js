@@ -272,7 +272,7 @@
   async function renderAgent() {
     const el = $("#view-agent");
     el.innerHTML = `<h1>Online Collection — Agent Search</h1><p class="muted">Planning queries from the language profile …</p>`;
-    const [plan, prov] = await Promise.all([get(`/api/languages/${encodeURIComponent(state.lang)}/agent/plan`), get("/api/agent/provider")]);
+    const [plan, prov, eng] = await Promise.all([get(`/api/languages/${encodeURIComponent(state.lang)}/agent/plan`), get("/api/agent/provider"), get("/api/agent/engines")]);
     const lim = plan.limits;
     el.innerHTML = `<h1>Online Collection — Agent Search</h1>
       <div class="card"><p class="row">Agent provider:
@@ -280,11 +280,34 @@
         ${plan.agent.available ? "" : `<span class="tag uncertain">not available (${esc(plan.agent.why)}); the rule-based agent is used</span>`}
         <span class="muted">· Web search backends: ${plan.backends.map(esc).join(", ") || "<em>none configured</em>"}</span></p>
       <p class="muted">A model provider receives the language profile and the text of visited pages. The choice is saved to config.toml.</p>
+      <details><summary>Search engines (${eng.engines.filter((e) => e.enabled && e.available).length} usable of ${eng.engines.length})</summary>
+        <div class="checks" id="engine-checks">${eng.engines.map((e) => `<label title="${esc(e.what)}${e.region ? " — " + esc(e.region) : ""}"><input type="checkbox" value="${esc(e.name)}" ${e.enabled ? "checked" : ""}> ${esc(e.name)} <span class="tag">${esc(e.kind)}</span>${e.available ? "" : ` <span class="tag uncertain" title="${esc(e.why)}">needs key</span>`}${e.verified ? "" : ` <span class="tag">unverified</span>`} <button class="small ghost" data-test="${esc(e.name)}">test</button>${e.source !== "builtin" ? ` <button class="small danger" data-rm="${esc(e.name)}">remove</button>` : ""}</label>`).join("")}</div>
+        <div class="row"><button id="engines-save" class="small">Save selection</button><span class="muted">Engines are asked in the order shown. Add your own (SearXNG, Baidu via SerpAPI, a keyed API …) with <code>aimixe collect search add</code>, or below.</span></div>
+        <pre id="engine-test" class="log hidden"></pre>
+        <form id="engine-add" class="row"><input name="name" placeholder="name" required><select name="kind"><option value="json">json API</option><option value="rss">rss / atom</option><option value="html">html page</option></select><input name="url" placeholder="URL template with {q} ({key} {cx} {lang})" size="48" required><input name="items" placeholder="json: result list path (results)"><input name="fields" placeholder="json: url=url, title=title, snippet=content" size="40"><input name="link_pattern" placeholder="html: regex, group 1 = URL"><input name="what" placeholder="description" size="30"><label><input type="checkbox" name="needs_key"> needs key</label><button class="small">Add engine</button></form>
+      </details>
       <p class="muted">Limits: ${lim.max_pages} pages, depth ${lim.max_depth}, ${lim.per_host} per host, ${lim.max_files} files, ${lim.max_rounds} rounds. Names and varieties discovered during the run feed later rounds and are proposed for review, never written to the profile.</p>
       <h3>Queries</h3>
       <table id="agent-queries"><tr><th></th><th>basis</th><th>query</th><th>why</th></tr>${plan.queries.map((q, i) => `<tr><td><input type="checkbox" checked data-i="${i}"></td><td>${esc(q.basis)}</td><td>${esc(q.text)}</td><td class="muted">${esc(q.rationale || "")}</td></tr>`).join("")}</table>
       <div class="row"><input id="agent-extra" placeholder="your own queries, separated by ;" size="60"><button id="agent-run" ${plan.backends.length ? "" : "disabled"}>Run</button></div></div>
       <pre id="agent-log" class="log hidden"></pre><div id="agent-result"></div>`;
+    $("#engines-save").addEventListener("click", async () => {
+      const names = $$("#engine-checks input[type=checkbox]:checked", el).map((i) => i.value);
+      try { await post("/api/agent/engines", { enabled: names }); toast("Search engines: " + names.join(", ")); renderAgent(); } catch (err) { fail(err); }
+    });
+    $$("button[data-test]", el).forEach((b) => b.addEventListener("click", async (ev) => {
+      ev.preventDefault(); const pre = $("#engine-test"); pre.classList.remove("hidden"); pre.textContent = `testing ${b.dataset.test} …`;
+      try { const r = await get(`/api/agent/engines/${encodeURIComponent(b.dataset.test)}/test?q=${encodeURIComponent((state.profileData && state.profileData.profile.name) || "language")}%20language`); pre.textContent = r.hits.length ? r.hits.map((h) => `${h.title || "(no title)"}\n    ${h.url}`).join("\n") : "no hits"; } catch (err) { pre.textContent = err.message; }
+    }));
+    $$("button[data-rm]", el).forEach((b) => b.addEventListener("click", async (ev) => {
+      ev.preventDefault(); try { const r = await del(`/api/agent/engines/${encodeURIComponent(b.dataset.rm)}`); toast(r.message); renderAgent(); } catch (err) { fail(err); }
+    }));
+    $("#engine-add").addEventListener("submit", async (ev) => {
+      ev.preventDefault(); const fd = new FormData(ev.target); const cfg = {}; fd.forEach((v, k) => { if (String(v).trim()) cfg[k] = String(v).trim(); });
+      if (cfg.needs_key) cfg.needs_key = true;
+      if (cfg.fields) { const f = {}; cfg.fields.split(",").forEach((p) => { const [k, v] = p.split("=").map((s) => s.trim()); if (k && v) f[k] = v; }); cfg.fields = f; }
+      try { await post("/api/agent/engines", { engine: cfg }); toast("Engine saved"); renderAgent(); } catch (err) { fail(err); }
+    });
     $("#agent-provider").addEventListener("change", async (e) => {
       try { await post("/api/agent/provider", { provider: e.target.value }); toast(`Agent provider: ${e.target.value}`); renderAgent(); } catch (err) { fail(err); }
     });
