@@ -3,6 +3,16 @@
 Terminal-first, UI-ready collection of language resources. Standalone: Python 3.11+
 standard library only, no third-party packages. The plan is in `PLAN.md`.
 
+## Install
+
+Python 3.11 or newer. No third-party packages.
+
+- **Without installing** (Linux, macOS): use `bin/aimixe` as below.
+- **Any OS, including Windows**: `pip install .` from this folder puts an `aimixe` command on
+  your PATH, so `aimixe collect` works in PowerShell, cmd, or any shell. Alternatively run
+  `python -m aimixe_collect ...` with `src` on `PYTHONPATH`.
+- Optional: `pdftotext` (poppler) improves PDF text extraction and is used when found.
+
 ## Run
 
 ```bash
@@ -53,6 +63,20 @@ PYTHONPATH=src:tests python3 -m unittest discover -s tests -v
 
 Bundled data in `src/aimixe_collect/data/`: ISO 639-3 tables, ISO 15924, ISO 3166 country
 names, and a Glottolog 5.3 / CLDR extract (CC-BY-4.0, see `reference-SOURCES.md`).
+
+## Limitations
+
+- OLAC, ELAR, PARADISEC and Pangloss have no machine-readable search the module can use, so
+  they are "lookup" providers: you get a URL to open, nothing is fetched.
+- The built-in PDF text extractor handles plainly encoded PDFs; scanned or CID-encoded PDFs
+  yield little text (reported as low quality). Install `pdftotext` for better results.
+- Fuzzy duplicate detection covers text. Image and audio fingerprints are declared hooks and
+  are not computed (no decoders in the standard library).
+- Relevance scoring is heuristic. Uncertain results go to the review queue; names shared by
+  many languages ("Zhuang", "Naga") count as weak evidence on purpose.
+- The web interface has no login; it binds to 127.0.0.1 only.
+- Tested on Linux. macOS should behave the same; on Windows use the `pip install` route
+  (the `bin/aimixe` script is a Unix shell script). Not yet verified on Windows.
 
 ## Exit codes
 

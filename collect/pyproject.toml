@@ -10,6 +10,7 @@ requires-python = ">=3.11"
 dependencies = []
 
 [project.scripts]
+aimixe = "aimixe_collect.launcher:main"
 aimixe-collect = "aimixe_collect.cli.main:main"
 
 [tool.setuptools.packages.find]
