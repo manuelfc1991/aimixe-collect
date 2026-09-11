@@ -93,6 +93,23 @@ def heading(text: str) -> None:
     print()
 
 
+def title_bar(subtitle: str | None = None) -> None:
+    """``AImixE — Data Collection   v0.1.0`` with a rule under it, at the top of a screen."""
+    from .. import __version__
+    width = min(term_width(), 100)
+    left = c("AImixE — Data Collection", "bold", "cyan") + "   " + c(f"v{__version__}", "grey")
+    if subtitle:
+        left += "   " + c(subtitle, "grey")
+    print()
+    print(left)
+    print(c("─" * width, "grey"))
+    print()
+
+
+def hint(text: str, indent: int = 4) -> None:
+    print(" " * indent + c("→ " + text, "grey"))
+
+
 def header(language: str | None = None, iso: str | None = None, resources: int | None = None,
            pending_review: int | None = None) -> None:
     """One muted line at the top of a screen: where you are and what you have."""
@@ -169,7 +186,8 @@ _last_choice: dict[str, int] = {}
 
 
 def choose(title: str, options: Sequence[str], *, allow_blank: bool = False, default: int | None = None,
-           remember: bool = True, allow_back: bool = False, help: str | None = None) -> int | None:
+           remember: bool = True, allow_back: bool = False, help: str | None = None,
+           descriptions: Sequence[str] | None = None) -> int | None:
     """Numbered menu; returns the 0-based index (None when blank is allowed and given).
 
     Enter takes the default: the given one, else the last choice made in this menu.
@@ -182,6 +200,8 @@ def choose(title: str, options: Sequence[str], *, allow_blank: bool = False, def
     for i, opt in enumerate(options, 1):
         mark = c("›", "cyan", "bold") if default == i - 1 else " "
         out(f"{mark}{i}. {opt}")
+        if descriptions and i - 1 < len(descriptions) and descriptions[i - 1]:
+            hint(descriptions[i - 1])
     out()
     while True:
         ans = prompt("Select:", help=help or "Enter a number, part of an option's text, b for back, q to quit.")

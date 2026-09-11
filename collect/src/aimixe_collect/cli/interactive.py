@@ -30,6 +30,51 @@ is hashed, classified, stored unchanged and indexed with where it came from. Sta
 language; the profile you build for it steers every search."""
 
 
+# ------------------------------------------------------------------ home screen
+def _language_state(app: App, row) -> tuple[str, str]:
+    """(status tags, suggested next step) for one stored language."""
+    lid = row["id"]
+    resources = app.resources.count_for_language(lid)
+    pending = len(app.review_service.pending(lid))
+    profile = app.language_service.load(lid)
+    to_ask = len(app.profile_service.status(profile).to_ask) if profile else 0
+    tags = []
+    if row["identifier_type"] == "local":
+        tags.append(r.c("local id", "yellow"))
+    tags.append(f"{resources} resource(s)")
+    if pending:
+        tags.append(r.c(f"{pending} to review", "yellow"))
+    if pending:
+        step = f"go through what is waiting ({pending} item(s) in the review queue)"
+    elif resources == 0:
+        step = "start collecting: online, offline or import"
+    elif to_ask > 12:
+        step = f"complete the language profile ({to_ask} field(s) still missing)"
+    else:
+        step = "collect more, or view the existing collection"
+    return "  ".join(tags), step
+
+
+def home_screen(app: App) -> list:
+    """List the languages already entered, each with its state and a next step. Returns the rows."""
+    rows = list(app.languages.list())
+    r.title_bar()
+    if not rows:
+        r.note(WELCOME)
+        r.out()
+        return rows
+    width = max(len(x["name"]) for x in rows)
+    for i, row in enumerate(rows, 1):
+        tags, step = _language_state(app, row)
+        code = row["iso639_3"] or row["id"]
+        r.out(f"  {r.c(str(i), 'cyan', 'bold'):>2}  {r.c(row['name'].ljust(width), 'bold')}  {r.c(code, 'grey')}  {tags}")
+        r.hint(step, indent=6)
+    r.out()
+    r.note("  a number opens that language · a name or ISO code starts another · q leaves")
+    r.out()
+    return rows
+
+
 # ------------------------------------------------------------------ §1 language step
 def show_detected(m: ResolvedLanguage) -> None:
     r.heading("Language detected")
@@ -53,11 +98,17 @@ def pick_language(app: App, preset: str | None = None, assume_yes: bool = False)
     query = preset
     while True:
         if not query:
+            rows = home_screen(app)
             query = r.prompt("Enter language name or ISO 639-3 code:",
-                             help="A language name (Tangsa), an ISO 639-3 code (nst), an alternative name or a dialect name. "
-                                  "The local registry is searched first, then the bundled ISO 639-3 / Glottolog tables.")
+                             help="A language name (Tangsa), an ISO 639-3 code (nst), an alternative name or a dialect name, "
+                                  "or the number of a language listed above. The local registry is searched first, "
+                                  "then the bundled ISO 639-3 / Glottolog tables.")
             if not query:
                 continue
+            if query.isdigit() and 1 <= int(query) <= len(rows):
+                profile = app.language_service.load(rows[int(query) - 1]["id"])
+                if profile is not None:
+                    return profile
         res: Resolution = app.language_service.resolve(query)
         chosen: ResolvedLanguage | None = None
         if res.status == "exact":
@@ -135,7 +186,9 @@ def profile_step(app: App, profile: Profile, force_menu: bool = False) -> None:
             "Review existing profile",
             "Edit profile",
             "Skip and continue collection",
-        ])
+        ], descriptions=[f"{len(status.to_ask)} field(s) missing or uncertain, asked group by group; blank skips a field",
+                         "every field with its value and where each value came from",
+                         "change any field, one section or all of them", ""])
         status = app.profile_service.status(profile)
         if idx == 0:
             if not status.to_ask:
@@ -180,6 +233,7 @@ def main_menu(app: App, profile: Profile) -> None:
         profile = app.language_service.load(profile.id) or profile
         _header(app, profile)
         try:
+            pending = len(app.review_service.pending(profile.id))
             idx = r.choose(f"Data Collection\n\nLanguage: {profile.name} [{profile.iso639_3 or profile.id}]", [
                 "Online Collection",
                 "Offline Collection",
@@ -187,7 +241,15 @@ def main_menu(app: App, profile: Profile) -> None:
                 "View Existing Collection",
                 "Language Profile",
                 "Exit",
-            ], help=MAIN_HELP)
+            ], help=MAIN_HELP, descriptions=[
+                "catalogues and archives, or an agent searching the web",
+                "scan folders on this machine for files about the language",
+                "add a file or folder you already have",
+                f"{app.resources.count_for_language(profile.id)} resource(s) stored"
+                + (r.c(f" · {pending} waiting in the review queue", "yellow") if pending else ""),
+                "complete, review or edit the language profile",
+                "back to the list of languages",
+            ])
         except Back:
             return
         try:
@@ -207,10 +269,25 @@ def main_menu(app: App, profile: Profile) -> None:
             continue
 
 
+def run_loop(app: App, preset_language: str | None = None, assume_yes: bool = False) -> int:
+    """Home screen → language → menu, and back to the home screen on Exit; q leaves."""
+    preset = preset_language
+    while True:
+        profile = pick_language(app, preset, assume_yes)
+        preset = None
+        if profile is None:
+            return 0
+        profile_step(app, profile)
+        profile = app.language_service.load(profile.id) or profile
+        main_menu(app, profile)
+
+
 # ------------------------------------------------------------------ §4 online
 def online_menu(app: App, profile: Profile) -> None:
     while True:
         idx = r.choose("Online Collection", ["Catalogue Search", "Agent Search", "Back"],
+                       descriptions=["Glottolog, Zenodo, Internet Archive, Kaipuleohone, plus lookup links for OLAC, ELAR, PARADISEC, Pangloss",
+                                     "queries planned from the profile; rule-based or a model CLI you choose", ""],
                        help="Catalogue Search asks known archives and repositories with the whole profile. "
                             "Agent Search plans web queries from the profile, follows pages and learns new names.")
         if idx == 0:
@@ -579,16 +656,7 @@ def catalogue_add_wizard() -> dict | None:
 # ------------------------------------------------------------------ entry
 def run_interactive(app: App, preset_language: str | None = None, assume_yes: bool = False) -> int:
     try:
-        if not preset_language and not app.languages.list():
-            r.note(WELCOME)
-            r.out()
-        profile = pick_language(app, preset_language, assume_yes)
-        if profile is None:
-            return 0
-        profile_step(app, profile)
-        profile = app.language_service.load(profile.id) or profile
-        main_menu(app, profile)
-        return 0
+        return run_loop(app, preset_language, assume_yes)
     except (Abort, Back):
         r.out("Bye.")
         return 0

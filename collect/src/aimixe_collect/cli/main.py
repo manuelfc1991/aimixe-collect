@@ -44,7 +44,8 @@ def build_parser() -> argparse.ArgumentParser:
   aimixe collect catalogue list       catalogue providers (add | remove)
   aimixe collect ui                   the same, in your browser
 in any menu: number or text to choose, b = back, q = quit, ? = help.""")
-    p.add_argument("--version", action="version", version="aimixe collect 0.1.0")
+    from .. import __version__
+    p.add_argument("--version", action="version", version=f"aimixe collect {__version__}")
     p.add_argument("--no-color", action="store_true", help="plain output (also honoured: NO_COLOR)")
     p.add_argument("language", nargs="?", help="language name or ISO 639-3 code")
     p.add_argument("--online", action="store_true", help="online collection menu")
