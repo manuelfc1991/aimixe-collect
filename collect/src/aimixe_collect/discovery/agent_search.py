@@ -57,7 +57,10 @@ class SessionKnowledge:
 
     sink: object = None          # a ProfileTerms the pipeline scores with; learned names are appended there
 
-    def learn(self, facts: list[ProposedFact], known: set[str]) -> list[str]:
+    max_terms: int = 12          # a session learns at most this many new names
+    per_page: int = 5            # … and at most this many from one page
+
+    def learn(self, facts: list[ProposedFact], known: set[str], is_other_language=None) -> list[str]:
         added = []
         for f in facts:
             values = f.value if isinstance(f.value, list) else [f.value]
@@ -65,7 +68,12 @@ class SessionKnowledge:
                 name = v.get("name") if isinstance(v, dict) else v
                 if not isinstance(name, str):
                     continue
+                name = _clean_name(name)
                 k = fold(name)
+                if not k or len(added) >= self.per_page or len(self.new_terms) >= self.max_terms:
+                    continue
+                if is_other_language and is_other_language(name):
+                    continue                         # "Thai", "Lao", "Shan": languages of their own, not our varieties
                 if k and k not in known and k not in self.new_terms and f.field in ("varieties", "alternate_names", "exonyms"):
                     self.new_terms[name] = f.field
                     added.append(name)
@@ -106,6 +114,12 @@ class AgentSearchRunner:
         self.knowledge = SessionKnowledge(sink=self.terms)
         self.known_terms: set[str] = {fold(x) for x in [profile.name, *self.terms.alternate_names, *self.terms.exonyms,
                                                         *self.terms.varieties, *self.terms.places] if x}
+        self._downloaded = 0
+        try:
+            from ..language.registry import load_registry
+            self._registry = load_registry()
+        except Exception:
+            self._registry = None
         self.report = AgentSearchReport()
         self._seen_urls: set[str] = set()
         self._host_counts: dict[str, int] = {}
@@ -150,14 +164,14 @@ class AgentSearchRunner:
                                    max_pages=self.limits.max_pages, files=len(self._file_urls))
                 say(f"  {q.text}  →  {len(hits)} hit(s)")
                 for hit in hits:
-                    if self.report.pages_fetched >= self.limits.max_pages or len(self._file_urls) >= self.limits.max_files:
+                    if self.report.pages_fetched >= self.limits.max_pages or self._downloaded >= self.limits.max_files:
                         break
                     outcomes.extend(self._visit(hit.url, q.text, depth=1, temp_dir=temp_dir, ingest=ingest,
                                                 title=hit.title, snippet=hit.snippet, say=say, on_outcome=on_outcome))
             # step 15: what was learned becomes the next round's queries
             new_q = self.learned_queries()
             already = {fold(x.text) for x in self.report.queries}
-            new_q = [x for x in new_q if fold(x.text) not in already]
+            new_q = [x for x in new_q if fold(x.text) not in already][: self.limits.max_queries]
             if new_q:
                 say(f"  learned {len(self.knowledge.new_terms)} new term(s): " + ", ".join(list(self.knowledge.new_terms)[:6]))
                 self.report.queries.extend(new_q)
@@ -165,6 +179,15 @@ class AgentSearchRunner:
         self.report.proposals = self.knowledge.proposals
         self.report.learned = list(self.knowledge.new_terms)
         return outcomes
+
+    def _is_other_language(self, name: str) -> bool:
+        """True when ``name`` is the reference name of another ISO language (so not a variety of ours)."""
+        if self._registry is None:
+            return False
+        for c in self._registry.find(name, limit=3):
+            if c.matched_on == "name" and c.score >= 0.98 and c.record.code != self.profile.iso639_3:
+                return True
+        return False
 
     def _search(self, q: AgentQuery) -> list[WebHit]:
         hits: list[WebHit] = []
@@ -223,15 +246,19 @@ class AgentSearchRunner:
         if analysis.score >= self.review_at:
             self.report.pages_relevant += 1
             action = "relevant"
-            # step 15: learn from the page
-            facts = self.agent.enrich_language_profile(Evidence(page.text[:60000], url, page.title))
-            facts = [f for f in _filter_facts(facts, self.profile, self.known_terms)]
-            added = self.knowledge.learn(facts, self.known_terms)
-            if added:
-                say(f"    learned: {', '.join(added[:5])}  ({url})")
+            # step 15: learn from the page — only when the page is clearly about this language, and never
+            # names that the ISO/Glottolog tables list as languages in their own right
+            if analysis.score >= self.confirmed_at and _page_is_about_us(page, self.profile, self.terms):
+                facts = self.agent.enrich_language_profile(Evidence(page.text[:60000], url, page.title))
+                facts = [f for f in _filter_facts(facts, self.profile, self.known_terms)]
+                added = self.knowledge.learn(facts, self.known_terms, is_other_language=self._is_other_language)
+                if added:
+                    say(f"    learned: {', '.join(added[:5])}  ({url})")
+            else:
+                say(f"    (page mentions the language but is not about it; nothing learned from {url[:70]})")
             # step 5/6: files linked from the page
             for link, anchor in page.links:
-                if len(self._file_urls) >= self.limits.max_files:
+                if self._downloaded >= self.limits.max_files:
                     break
                 if skip_host(link) or normalise_url(link) in self._seen_urls:
                     continue
@@ -289,6 +316,7 @@ class AgentSearchRunner:
             if on_outcome:
                 on_outcome(out)
             return [out]
+        self._downloaded += 1
         cand = CandidateResource(language_id=self.profile.id, method="agent", local_path=path, url=url,
                                  source_url=source_url, query=query, title=title or path.name,
                                  download_date=now_iso(), import_method="move",
@@ -366,6 +394,13 @@ class AgentSearchRunner:
 
 
 # ---------------------------------------------------------------- helpers
+def _clean_name(name: str) -> str:
+    """Strip footnote marks and bracketed glosses: "Zhuang–Tai[1]" → "Zhuang–Tai", "Lao (Laotian)" → "Lao"."""
+    name = re.sub(r"\[\d+\]", "", name)
+    name = re.sub(r"\s*\([^)]*\)\s*$", "", name)
+    return name.strip(" .,;:")
+
+
 def _repo_kind(url: str) -> str | None:
     for pat, kind in REPO_PATTERNS:
         if pat.search(url):
@@ -385,6 +420,13 @@ def _relevant_links(links: list[tuple[str, str]], terms, knowledge: SessionKnowl
             if len(out) >= limit:
                 break
     return out
+
+
+def _page_is_about_us(page: Page, profile: Profile, terms) -> bool:
+    """The page title or its first lines name this language (a family overview page does not qualify)."""
+    head = fold((page.title or "") + " " + page.text[:600])
+    names = [profile.name, *terms.alternate_names[:6]]
+    return any(fold(n) and f" {fold(n)} " in f" {head} " for n in names if n)
 
 
 def _filter_facts(facts: list[ProposedFact], profile: Profile, known: set[str]):
