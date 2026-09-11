@@ -125,7 +125,8 @@ class ServerTests(unittest.TestCase):
             try:
                 base = f"http://127.0.0.1:{port}"
                 html = urllib.request.urlopen(base + "/").read().decode()
-                self.assertIn("Enter language name or ISO 639-3 code", html)
+                self.assertIn("AImixE Data Collection", html)
+                self.assertIn('id="view-find"', html)
                 js = urllib.request.urlopen(base + "/app.js").read().decode()
                 self.assertIn("Language detected", js)
                 for item in ("1. Online Collection", "Catalogue Search", "Agent Search", "Offline Collection",

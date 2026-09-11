@@ -68,8 +68,14 @@ class Api:
     def _route(self, app: App, method: str, parts: list[str], q: dict[str, str], body: dict[str, Any]) -> Any:
         head = parts[0] if parts else ""
         if head == "home" and method == "GET":
+            n_sessions = app.conn.execute("SELECT count(*) FROM session").fetchone()[0]
+            stored = app.conn.execute("SELECT coalesce(sum(size), 0) FROM resource").fetchone()[0]
+            pending = app.review_service.pending()
             return {"languages": [self._language_card(app, row) for row in app.languages.list()],
-                    "pending_review": len(app.review_service.pending())}
+                    "pending_review": len(pending),
+                    "pending_resources": sum(1 for i in pending if i.kind == "resource"),
+                    "pending_facts": sum(1 for i in pending if i.kind == "profile_field"),
+                    "sessions": n_sessions, "stored_bytes": stored}
         if head == "status" and method == "GET":
             from .. import __version__
             name, ok, why = app.agent_service.agent_status()
@@ -156,7 +162,13 @@ class Api:
         resources = app.resources.count_for_language(lid)
         pending = len(app.review_service.pending(lid))
         profile = app.language_service.load(lid)
-        to_ask = len(app.profile_service.status(profile).to_ask) if profile else 0
+        st = app.profile_service.status(profile) if profile else None
+        to_ask = len(st.to_ask) if st else 0
+        known = len(st.known) if st else 0
+        total = sum(len(g.fields) for g in schema.GROUPS)
+        items = app.review_service.pending(lid)
+        family = profile.display_value("identity", "family") if profile else None
+        region = profile.display_value("orthography_location", "region") if profile else None
         last = app.sessions.last_for_language(lid)
         if pending:
             step = f"go through what is waiting ({pending} item(s) in the review queue)"
@@ -168,6 +180,11 @@ class Api:
             step = "collect more, or view the existing collection"
         return {"id": lid, "name": row["name"], "iso639_3": row["iso639_3"], "identifier_type": row["identifier_type"],
                 "resources": resources, "pending_review": pending, "profile_missing": to_ask, "next_step": step,
+                "profile_known": known, "profile_total": total,
+                "pending_resources": sum(1 for i in items if i.kind == "resource"),
+                "pending_facts": sum(1 for i in items if i.kind == "profile_field"),
+                "family": family if isinstance(family, str) else None,
+                "region": region if isinstance(region, str) else None,
                 "last_session": {"id": last["id"], "mode": last["mode"], "started_at": last["started_at"],
                                  "status": last["status"]} if last else None}
 
