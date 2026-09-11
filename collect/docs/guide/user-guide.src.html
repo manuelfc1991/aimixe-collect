@@ -760,7 +760,7 @@ aimixe collect ui --no-browser    # only print the address</code></pre>
 <p>The layout is the same on every screen: a <b>sidebar</b> with the language switcher, the Collect actions, the Language pages with live counts, the review badge, History, Settings, the User guide link and the agent and engine status; a <b>search box</b> at the top to find or jump to a language; and the page itself.</p>
 
 <h3 id="web-home">Home</h3>
-<figure><img src="images/web-home.jpg" alt="Home screen of the web interface"><figcaption>One row per language: family and region, when it was last collected and how, resources stored, profile fields known, and what is waiting. The button on the right is the suggested next step: Review, Start collecting or Open.</figcaption></figure>
+<figure><img src="images/web-home.jpg" alt="Home screen of the web interface"><figcaption>One row per language: family and region, when it was last collected and how, resources stored, profile fields known, and what is waiting. The button on the right is the suggested next step: Review, Start collecting or Open. The card at the bottom of the sidebar is an offline scan running in the background, with its live counter.</figcaption></figure>
 <ul>
   <li><b>New language</b> opens the search page. The keys shown next to it work everywhere: <kbd>G</kbd> then <kbd>N</kbd> new, <kbd>G</kbd> <kbd>R</kbd> review, <kbd>G</kbd> <kbd>H</kbd> history, <kbd>G</kbd> <kbd>S</kbd> settings.</li>
   <li>Click a language name or <b>Open</b> to work on it: the sidebar switches to that language and the profile opens.</li>
@@ -792,7 +792,7 @@ aimixe collect ui --no-browser    # only print the address</code></pre>
 <p>The three panels: the <b>agent provider</b> (changing it here saves to config.toml, as in the terminal), the <b>search engines</b> currently usable with a link to Settings, and a box for <b>your own queries</b> separated by semicolons. The limits from configuration are shown under the Run button. While running, the log shows every page and download; at the end, the counts, the names learned, the facts proposed for review, any engine errors, and the outcome of every resource.</p>
 
 <h3 id="web-offline">Offline collection and Import</h3>
-<figure><img src="images/web-offline.jpg" alt="Offline collection page"><figcaption>Folders one per line, storage mode, whether to look inside files, and the search terms the profile provides.</figcaption></figure>
+<figure><img src="images/web-offline.jpg" alt="Offline collection page"><figcaption>Folders one per line, storage mode, whether to look inside files, and the search terms the profile provides. Below them, two scans started one after the other: each has its own header, log and progress line, and both appear as cards in the sidebar.</figcaption></figure>
 <figure><img src="images/web-import.jpg" alt="Import page"><figcaption>A path on this machine and the storage mode. Enter in the box starts the import.</figcaption></figure>
 <p>Both run as jobs with a progress line (files seen and matches for a scan, files done for an import), then the session summary and the outcome table. Clicking a stored outcome opens the resource in the Collection page. You can leave the page while it runs; see <a href="#web-jobs">Leaving a page while a run is going</a>.</p>
 
@@ -835,6 +835,7 @@ aimixe collect ui --no-browser    # only print the address</code></pre>
   <li>The <b>terminal</b> home screen lists sessions still in progress, whether they were started from the browser or from another terminal, so nothing runs unnoticed.</li>
   <li><b>Several runs at once</b> are fine: an offline scan and an agent search, or runs for two languages, each get their own card and their own session. The database lets them write side by side; a file found by two runs is stored once and linked from both.</li>
 </ul>
+<figure><img src="images/web-offline.jpg" alt="Two offline scans running at the same time"><figcaption>Two scans of the same language running at once: one block per job on the page, one card per job in the sidebar.</figcaption></figure>
 <div class="callout"><span class="dot"></span><p>A job belongs to the server process that started it. Stopping <code>aimixe collect ui</code> with Ctrl-C, or leaving the terminal interface with <code>q</code> when the web interface was started with <code>w</code>, ends the process; a run in progress is recorded as interrupted and can be resumed with <code>aimixe collect resume &lt;session-id&gt;</code> for offline scans and imports.</p></div>
 
 <h3 id="web-keys">Shortcuts and addresses</h3>
