@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
-from ..logging_setup import now_iso
+from ..logging_setup import now_iso, safe_text
 from ..profile.model import FieldValue, Profile
 
 
@@ -233,9 +233,9 @@ class SessionRepo:
         self.conn.execute(f"UPDATE session SET {counter} = {counter} + ? WHERE id=?", (by, session_id))
 
     def event(self, session_id: str, level: str, message: str, data: dict[str, Any] | None = None) -> None:
+        payload = safe_text(json.dumps(data, ensure_ascii=False, default=str)) if data else None
         self.conn.execute("INSERT INTO session_event(session_id, ts, level, message, data_json) VALUES (?,?,?,?,?)",
-                          (session_id, now_iso(), level, message,
-                           json.dumps(data, ensure_ascii=False, default=str) if data else None))
+                          (session_id, now_iso(), level, safe_text(message), payload))
 
     def finish(self, session_id: str, status: str = "finished") -> None:
         self.conn.execute("UPDATE session SET status=?, finished_at=? WHERE id=?", (status, now_iso(), session_id))

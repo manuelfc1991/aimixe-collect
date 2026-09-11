@@ -79,7 +79,8 @@ class CliAgent(AgentProvider):
         if "{prompt}" not in self.command:
             stdin = prompt
         try:
-            proc = subprocess.run(argv, input=stdin, capture_output=True, text=True, timeout=self.timeout)
+            proc = subprocess.run(argv, input=stdin, capture_output=True, text=True, timeout=self.timeout,
+                                  encoding="utf-8", errors="replace")
         except (OSError, subprocess.TimeoutExpired) as exc:
             raise RuntimeError(f"{self.name}: {type(exc).__name__}: {exc}") from exc
         if proc.returncode != 0 and not proc.stdout.strip():

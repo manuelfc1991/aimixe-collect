@@ -12,6 +12,15 @@ def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
+def safe_text(text: str) -> str:
+    """Drop lone surrogates and other unencodable characters (scraped URLs and titles carry them)."""
+    try:
+        text.encode("utf-8")
+        return text
+    except UnicodeEncodeError:
+        return text.encode("utf-8", "replace").decode("utf-8")
+
+
 class JsonlLog:
     def __init__(self, path: Path):
         self.path = path
@@ -21,7 +30,7 @@ class JsonlLog:
         row = {"ts": now_iso(), "pid": os.getpid(), "event": event}
         row.update(fields)
         with self.path.open("a", encoding="utf-8") as fh:
-            fh.write(json.dumps(row, ensure_ascii=False, default=str) + "\n")
+            fh.write(safe_text(json.dumps(row, ensure_ascii=False, default=str)) + "\n")
             fh.flush()
             try:
                 os.fsync(fh.fileno())

@@ -135,6 +135,9 @@ def main(argv: list[str] | None = None) -> int:
     except FileNotFoundError as exc:
         r.err(f"Not found: {exc}")
         return EXIT_INVALID
+    except UnicodeError as exc:
+        r.err(f"Internal error (text encoding): {exc}")
+        return EXIT_INTERNAL
     except ValueError as exc:
         r.err(f"Invalid input: {exc}")
         return EXIT_INVALID

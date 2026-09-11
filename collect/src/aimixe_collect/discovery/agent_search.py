@@ -166,8 +166,15 @@ class AgentSearchRunner:
                 for hit in hits:
                     if self.report.pages_fetched >= self.limits.max_pages or self._downloaded >= self.limits.max_files:
                         break
-                    outcomes.extend(self._visit(hit.url, q.text, depth=1, temp_dir=temp_dir, ingest=ingest,
-                                                title=hit.title, snippet=hit.snippet, say=say, on_outcome=on_outcome))
+                    try:
+                        outcomes.extend(self._visit(hit.url, q.text, depth=1, temp_dir=temp_dir, ingest=ingest,
+                                                    title=hit.title, snippet=hit.snippet, say=say, on_outcome=on_outcome))
+                    except KeyboardInterrupt:
+                        raise
+                    except Exception as exc:  # one bad page must not end the run
+                        msg = f"{hit.url[:80]}: {type(exc).__name__}: {exc}"
+                        self.report.errors.append(msg)
+                        say(f"    ! {msg[:140]}")
             # step 15: what was learned becomes the next round's queries
             new_q = self.learned_queries()
             already = {fold(x.text) for x in self.report.queries}
@@ -272,8 +279,13 @@ class AgentSearchRunner:
             # step 4: follow links whose anchor text mentions the language or its varieties
             if depth < self.limits.max_depth:
                 for link, anchor in _relevant_links(page.links, self.terms, self.knowledge, limit=6):
-                    outcomes.extend(self._visit(link, query, depth + 1, temp_dir, ingest, title=anchor, say=say,
-                                                on_outcome=on_outcome, parent=url))
+                    try:
+                        outcomes.extend(self._visit(link, query, depth + 1, temp_dir, ingest, title=anchor, say=say,
+                                                    on_outcome=on_outcome, parent=url))
+                    except KeyboardInterrupt:
+                        raise
+                    except Exception as exc:
+                        self.report.errors.append(f"{link[:80]}: {type(exc).__name__}: {exc}")
         self.report.visited.append({"url": url, "score": analysis.score, "action": action, "title": page.title[:120],
                                     "reasons": analysis.reasons[:4]})
         return outcomes

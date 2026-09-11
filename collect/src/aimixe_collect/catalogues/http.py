@@ -21,6 +21,26 @@ class HttpError(Exception):
     pass
 
 
+def iri_to_uri(url: str) -> str:
+    """Percent-encode non-ASCII characters (and spaces) so the request line is plain ASCII.
+
+    Links scraped from pages are often IRIs: https://en.wikipedia.org/wiki/Tai_Lü_language.
+    """
+    if url.isascii() and " " not in url:
+        return url
+    u = urllib.parse.urlsplit(url)
+    host = u.hostname.encode("idna").decode("ascii") if u.hostname and not u.hostname.isascii() else (u.hostname or "")
+    netloc = host
+    if u.port:
+        netloc += f":{u.port}"
+    if u.username:
+        netloc = f"{u.username}{':' + u.password if u.password else ''}@{netloc}"
+    path = urllib.parse.quote(u.path, safe="/%:@!$&'()*+,;=~-._")
+    query = urllib.parse.quote(u.query, safe="=&%+/:@!$'()*,;?~-._")
+    frag = urllib.parse.quote(u.fragment, safe="%/?:@!$&'()*+,;=~-._")
+    return urllib.parse.urlunsplit((u.scheme, netloc, path, query, frag))
+
+
 def configure_cache(directory: Path | None, ttl_seconds: int = _cache_ttl) -> None:
     global _cache_dir, _cache_ttl
     _cache_dir = directory
@@ -42,14 +62,14 @@ def get_bytes(url: str, accept: str = "*/*", timeout: int = DEFAULT_TIMEOUT, use
     if cp and cp.exists() and time.time() - cp.stat().st_mtime < _cache_ttl:
         meta = cp.with_suffix(".type")
         return cp.read_bytes(), (meta.read_text() if meta.exists() else "")
-    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Accept": accept, **(headers or {})})
+    req = urllib.request.Request(iri_to_uri(url), headers={"User-Agent": USER_AGENT, "Accept": accept, **(headers or {})})
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             body = resp.read()
             ctype = resp.headers.get("Content-Type", "")
     except urllib.error.HTTPError as exc:
         raise HttpError(f"HTTP {exc.code} for {url}") from exc
-    except (urllib.error.URLError, TimeoutError, OSError) as exc:
+    except (urllib.error.URLError, TimeoutError, OSError, ValueError) as exc:
         raise HttpError(f"{type(exc).__name__}: {exc} for {url}") from exc
     if cp:
         cp.write_bytes(body)
@@ -77,7 +97,7 @@ def get_text(url: str, timeout: int = DEFAULT_TIMEOUT, use_cache: bool = True) -
 
 
 def head_status(url: str, timeout: int = 15) -> int | None:
-    req = urllib.request.Request(url, method="HEAD", headers={"User-Agent": USER_AGENT})
+    req = urllib.request.Request(iri_to_uri(url), method="HEAD", headers={"User-Agent": USER_AGENT})
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             return resp.status
@@ -109,7 +129,7 @@ def download_file(url: str, dest_dir: Path, filename: str | None = None, max_byt
     ``progress(bytes_done, total_or_None)`` is called every few megabytes.
     """
     dest_dir.mkdir(parents=True, exist_ok=True)
-    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+    req = urllib.request.Request(iri_to_uri(url), headers={"User-Agent": USER_AGENT})
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             length = resp.headers.get("Content-Length")
@@ -144,7 +164,7 @@ def download_file(url: str, dest_dir: Path, filename: str | None = None, max_byt
             return target
     except urllib.error.HTTPError as exc:
         raise HttpError(f"HTTP {exc.code} for {url}") from exc
-    except (urllib.error.URLError, TimeoutError, OSError) as exc:
+    except (urllib.error.URLError, TimeoutError, OSError, ValueError) as exc:
         raise HttpError(f"{type(exc).__name__}: {exc} for {url}") from exc
 
 

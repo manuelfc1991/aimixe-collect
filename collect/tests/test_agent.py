@@ -257,3 +257,33 @@ class ProviderSelectionTests(unittest.TestCase):
             with mock.patch("builtins.input", side_effect=["2"]), contextlib.redirect_stdout(io.StringIO()):
                 chosen = interactive.choose_agent_provider(t.app)
             self.assertEqual(chosen, names[1])
+
+
+class IriTests(unittest.TestCase):
+    def test_non_ascii_urls_are_percent_encoded(self):
+        from aimixe_collect.catalogues.http import iri_to_uri
+        self.assertEqual(iri_to_uri("https://en.wikipedia.org/wiki/Tai_Lü_language"),
+                         "https://en.wikipedia.org/wiki/Tai_L%C3%BC_language")
+        self.assertEqual(iri_to_uri("https://x.example/a b?q=ü#f"), "https://x.example/a%20b?q=%C3%BC#f")
+        self.assertEqual(iri_to_uri("https://x.example/already%20ok?q=1"), "https://x.example/already%20ok?q=1")
+        self.assertEqual(iri_to_uri("https://bücher.example/p"), "https://xn--bcher-kva.example/p")
+
+    def test_one_bad_page_does_not_end_the_run(self):
+        from aimixe_collect.agent.rule_based import RuleBasedAgent
+        from aimixe_collect.discovery.web import WebHit, WebSearchBackend
+        with TempHome() as t:
+            p = t.tangsa()
+            site = t.root / "site"
+            _site(site)
+
+            class Mixed(WebSearchBackend):
+                name = "mixed"
+
+                def search(self, query, limit=10):
+                    return [WebHit(url="https://en.wikipedia.org/wiki/Tai_Lü_\udcff", title="broken", query=query),
+                            WebHit(url=(site / "index.html").as_uri(), title="Tangsa language", query=query)]
+
+            runner = t.app.agent_service.runner(p, backends=[Mixed()], agent=RuleBasedAgent(max_queries=1))
+            run = t.app.agent_service.run(p, runner, runner.plan())
+            self.assertEqual(run.report.pages_fetched, 1)          # the good page was still visited
+            self.assertTrue(run.report.errors)                      # the bad one is reported, not fatal
