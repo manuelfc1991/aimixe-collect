@@ -23,53 +23,65 @@ class ProfileWizard:
     # ------------------------------------------------------------- progress
     def show_progress(self, status: ProfileStatus, current: str | None) -> None:
         r.heading("Language Profile")
-        r.out("✓ Basic identification")
+        r.out(f"{r.c('✓', 'green')} Basic identification")
         for g in schema.GROUPS:
             state = status.group_state(g.name)
             if g.name == current:
-                glyph = "●"
+                r.out(f"{r.c('●', 'cyan', 'bold')} {r.c(g.progress_label, 'bold')}")
             elif state == "done":
-                glyph = "✓"
+                r.out(f"{r.c('✓', 'green')} {g.progress_label}")
             else:
-                glyph = "○"
-            r.out(f"{glyph} {g.progress_label}")
+                left = sum(1 for gg, _ in status.to_ask if gg == g.name)
+                r.out(f"{r.c('○', 'grey')} {g.progress_label}  {r.c(f'{left} to fill', 'grey')}")
         r.out()
 
     # ------------------------------------------------------------- summaries
     def show_known_missing(self, status: ProfileStatus) -> None:
+        """Known and missing fields, grouped by section on one line each (specification §2.6)."""
         r.heading("Language profile found." if status.known else "Language profile is empty.")
+        width = max(len(g.progress_label) for g in schema.GROUPS)
+        unsure = set(status.uncertain) | set(status.contradictory)
         if status.known:
             r.out("Known:")
-            for g, f in status.known:
-                mark = "?" if (g, f) in status.uncertain or (g, f) in status.contradictory else "✓"
-                r.out(f"{mark} {schema.field_spec(g, f).label}")
+            for g in schema.GROUPS:
+                sure = [schema.field_spec(gn, f).label for gn, f in status.known if gn == g.name and (gn, f) not in unsure]
+                shaky = [schema.field_spec(gn, f).label for gn, f in status.known if gn == g.name and (gn, f) in unsure]
+                if sure:
+                    r.out(f"  {r.c('✓', 'green')} {g.progress_label.ljust(width)}  {' · '.join(sure)}")
+                if shaky:
+                    r.out(f"  {r.c('?', 'yellow')} {g.progress_label.ljust(width)}  {' · '.join(shaky)} "
+                          f"{r.c('(uncertain — will be asked again)', 'grey')}")
             r.out()
         if status.to_ask:
+            missing = [(gn, f) for gn, f in status.to_ask if (gn, f) not in unsure]
             r.out("Missing:" if not (status.uncertain or status.contradictory) else "Missing or uncertain:")
-            for g, f in status.to_ask:
-                r.out(f"- {schema.field_spec(g, f).label}")
+            for g in schema.GROUPS:
+                labels = [schema.field_spec(gn, f).label for gn, f in missing if gn == g.name]
+                if labels:
+                    r.out(f"  {r.c('–', 'grey')} {g.progress_label.ljust(width)}  {r.c(' · '.join(labels), 'grey')}")
+            r.out()
+            r.note(f"  {len(status.known)} known · {len(status.to_ask)} to fill. Every field can be skipped; "
+                   "answers are saved as you go.")
             r.out()
 
     def review(self) -> None:
         """Review existing profile: every field with its value and provenance."""
-        r.heading(f"Language Profile – {self.profile.name} [{self.profile.iso639_3 or self.profile.id}]")
+        r.title_bar(f"Language Profile · {self.profile.name} [{self.profile.iso639_3 or self.profile.id}]")
         for g in schema.GROUPS:
-            r.out(f"{g.title}")
+            r.out(r.c(g.title, "bold", "cyan"))
             for f in g.fields:
                 vals = self.profile.field_values(g.name, f.name, include_proposed=True)
                 if not vals:
-                    r.out(f"  {f.label}: —")
+                    r.out(f"  {f.label}: {r.c('—', 'grey')}")
                     continue
-                if f.multi:
-                    r.out(f"  {f.label}: {r.fmt_value(self.profile.collected(g.name, f.name))}")
-                else:
-                    r.out(f"  {f.label}: {r.fmt_value(self.profile.display_value(g.name, f.name))}")
+                shown = self.profile.collected(g.name, f.name) if f.multi else self.profile.display_value(g.name, f.name)
+                r.out(f"  {r.c(f.label, 'bold')}: {r.fmt_value(shown)}")
                 for v in vals:
-                    flag = "*" if v.preferred else " "
-                    st = "" if v.status == "accepted" else f" [{v.status}]"
+                    flag = r.c("★", "yellow") if v.preferred else " "
+                    st = "" if v.status == "accepted" else r.c(f" [{v.status}]", "yellow")
                     src = v.source or v.source_type
-                    r.out(f"     {flag} {r.fmt_value(v.value)}  — {v.source_type}: {src}"
-                          f"{f' ({v.year})' if v.year else ''}, confidence {v.confidence:.2f}{st}")
+                    r.out(r.c(f"     {flag} {r.fmt_value(v.value)}  — {v.source_type}: {src}"
+                              f"{f' ({v.year})' if v.year else ''}, confidence {v.confidence:.2f}", "grey") + st)
             r.out()
 
     # ------------------------------------------------------------- asking
@@ -79,13 +91,15 @@ class ProfileWizard:
         by_group: dict[str, list[str]] = {}
         for g, f in fields:
             by_group.setdefault(g, []).append(f)
-        r.out("Leave a field blank to skip it. Type ? for help. Ctrl-C leaves the profile step.")
+        r.note("Leave a field blank to skip it. ? shows help and suggested values. Ctrl-C leaves the profile step; answers so far are kept.")
         try:
             for g in schema.GROUPS:
                 if g.name not in by_group:
                     continue
                 self.show_progress(status, g.name)
                 r.heading(f"Language Profile – {g.title}")
+                r.note(f"  {len(by_group[g.name])} field(s) in this section")
+                r.out()
                 for fname in by_group[g.name]:
                     spec = schema.field_spec(g.name, fname)
                     if self.ask_field(g.name, spec):
@@ -100,7 +114,7 @@ class ProfileWizard:
         if current not in (None, [], {}):
             conf = self.profile.confidence(group, spec.name)
             src = self.profile.preferred(group, spec.name)
-            r.out(f"(current: {r.fmt_value(current)} — {src.source_type if src else '?'}, confidence {conf:.2f})")
+            r.note(f"  current: {r.fmt_value(current)} — {src.source_type if src else '?'}, confidence {conf:.2f}")
         value = self._ask_kind(group, spec)
         if value is None:
             return False
@@ -108,17 +122,10 @@ class ProfileWizard:
         return True
 
     def _prompt(self, spec: schema.FieldSpec, label: str | None = None) -> str:
-        while True:
-            ans = r.prompt(label or spec.prompt)
-            if ans == "?":
-                if spec.help:
-                    r.out(spec.help)
-                if spec.suggested:
-                    r.out("Suggested values: " + ", ".join(spec.suggested))
-                if not spec.help and not spec.suggested:
-                    r.out("Free text. Leave blank to skip.")
-                continue
-            return ans
+        text = r.c(label, "bold") if label else r.c(spec.prompt, "bold")
+        help_text = " ".join(filter(None, [spec.help, ("Suggested: " + ", ".join(spec.suggested)) if spec.suggested else None])) \
+            or "Free text. Leave blank to skip."
+        return r.prompt(text, help=help_text)
 
     def _ask_kind(self, group: str, spec: schema.FieldSpec) -> Any:
         kind = spec.kind

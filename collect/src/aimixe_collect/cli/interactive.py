@@ -197,6 +197,7 @@ def _choose_candidate(app: App, matches: list[ResolvedLanguage]) -> ResolvedLang
 def profile_step(app: App, profile: Profile, force_menu: bool = False) -> None:
     status = app.profile_service.status(profile)
     wizard = ProfileWizard(app, profile)
+    r.title_bar(f"Language Profile · {profile.name} [{profile.iso639_3 or profile.id}]")
     wizard.show_known_missing(status)
     if not status.to_ask and not force_menu:
         r.out("Profile complete.")
@@ -331,7 +332,7 @@ def catalogue_search(app: App, profile: Profile, assume_yes: bool = False,
     if not providers:
         r.out("No catalogue providers are enabled. Add one with: aimixe collect catalogue add")
         return None
-    r.heading(f"Catalogue Search – {profile.name} [{profile.iso639_3 or profile.id}]")
+    r.title_bar(f"Catalogue Search · {profile.name} [{profile.iso639_3 or profile.id}]")
     for p in providers:
         ok, why = p.available_for(profile)
         r.out(f"  {p.name:18} {p.kind:7} {p.description if ok else '— skipped: ' + why}")
@@ -398,7 +399,7 @@ def catalogue_search(app: App, profile: Profile, assume_yes: bool = False,
 def agent_search(app: App, profile: Profile, assume_yes: bool = False) -> SessionSummary | None:
     svc = app.agent_service
     name, ok, why = svc.agent_status()
-    r.heading(f"Agent Search – {profile.name} [{profile.iso639_3 or profile.id}]")
+    r.title_bar(f"Agent Search · {profile.name} [{profile.iso639_3 or profile.id}]")
     r.out(f"Agent provider: {name}" + ("" if ok else f" — not available ({why}); the rule-based agent is used"))
     if not assume_yes and r.ask_yes_no("Use a different agent provider?", default=False):
         choose_agent_provider(app)
@@ -472,7 +473,7 @@ def choose_agent_provider(app: App) -> str | None:
 def offline_collection(app: App, profile: Profile, roots: list[Path] | None = None,
                        mode: str | None = None) -> SessionSummary | None:
     if not roots:
-        r.heading("Offline Collection")
+        r.title_bar(f"Offline Collection · {profile.name} [{profile.iso639_3 or profile.id}]")
         terms = app.collection_service.offline_terms(profile)
         r.out(f"Scanning for {len(terms)} term(s) from the language profile, e.g.: "
               + ", ".join(t.text for t in terms[:8]))
@@ -507,7 +508,7 @@ def offline_collection(app: App, profile: Profile, roots: list[Path] | None = No
 
 # ------------------------------------------------------------------ §9 import
 def import_menu(app: App, profile: Profile) -> None:
-    r.heading("Import Files / Folder")
+    r.title_bar(f"Import Files / Folder · {profile.name} [{profile.iso639_3 or profile.id}]")
     target = r.prompt("File or folder to import:")
     if not target:
         return
@@ -543,7 +544,9 @@ def _ask_mode(app: App) -> str:
 # ------------------------------------------------------------------ view / summaries
 def view_collection(app: App, profile: Profile) -> None:
     rows = app.collection_service.resources_for(profile)
-    r.heading(f"Existing Collection – {profile.name} [{profile.iso639_3 or profile.id}]: {len(rows)} resource(s)")
+    r.title_bar(f"Existing Collection · {profile.name} [{profile.iso639_3 or profile.id}]")
+    r.out(f"  {r.c(str(len(rows)), 'bold')} resource(s)")
+    r.out()
     if not rows:
         return
     table = []
@@ -610,12 +613,12 @@ def print_summary(s: SessionSummary, app: App | None = None) -> None:
     r.out(f"Language: {s.language_name} [{s.language_id}]")
     r.out(f"Mode: {s.mode}")
     r.out()
-    r.out(f"Discovered: {s.discovered}")
-    r.out(f"Relevant: {s.relevant}")
-    r.out(f"Downloaded: {s.downloaded}")
+    r.out(f"Discovered: {r.c(str(s.discovered), 'bold')}")
+    r.out(f"Relevant: {r.c(str(s.relevant), 'bold')}")
+    r.out(f"Downloaded: {r.c(str(s.downloaded), 'green', 'bold')}")
     r.out(f"Duplicates: {s.duplicates}")
-    r.out(f"Failed: {s.failed}")
-    r.out(f"Pending review: {s.pending_review}")
+    r.out(f"Failed: {r.c(str(s.failed), 'red') if s.failed else '0'}")
+    r.out(f"Pending review: {r.c(str(s.pending_review), 'yellow') if s.pending_review else '0'}")
     if s.status != "finished":
         r.out(f"Status: {s.status}")
     extras = []
