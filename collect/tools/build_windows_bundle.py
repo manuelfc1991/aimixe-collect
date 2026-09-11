@@ -32,6 +32,14 @@ set "PYTHONUTF8=1"
 endlocal
 """
 
+GUIDE_LAUNCHER = """@echo off
+rem Opens the user guide (a single HTML file) in your browser.
+setlocal
+set "HERE=%~dp0"
+start "" "%HERE%app\\aimixe_collect\\docs\\user-guide.html"
+endlocal
+"""
+
 UI_LAUNCHER = """@echo off
 rem Opens the local web interface in your browser.
 setlocal
@@ -67,6 +75,7 @@ Contents
                python3xx._pth, which adds ..\\app to the import path)
   app\\         the aimixe_collect module and run.py
   aimixe.cmd   command-line launcher        aimixe-ui.cmd   opens the web interface
+  user-guide.cmd   opens the user guide (also: aimixe collect guide)
 
 Notes
   * Built on {built_on}. This bundle was assembled without a Windows machine; if
@@ -120,6 +129,7 @@ def build(pyver: str, out_dir: Path, arch: str = "amd64") -> Path:
     from datetime import date
     (bundle / "aimixe.cmd").write_bytes(LAUNCHER.replace("\n", "\r\n").encode("utf-8"))
     (bundle / "aimixe-ui.cmd").write_bytes(UI_LAUNCHER.replace("\n", "\r\n").encode("utf-8"))
+    (bundle / "user-guide.cmd").write_bytes(GUIDE_LAUNCHER.replace("\n", "\r\n").encode("utf-8"))
     (bundle / "README.txt").write_bytes(
         README.format(pyver=pyver, built_on=date.today().isoformat(), pysha=pysha).replace("\n", "\r\n").encode("utf-8"))
     for extra in ("README.md", "PLAN.md"):

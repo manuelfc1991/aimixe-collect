@@ -67,6 +67,9 @@ def make_handler(api: Api):
                 name, ctype = STATIC[u.path]
                 data = ilr.files("aimixe_collect.web").joinpath("static").joinpath(name).read_bytes()
                 return self._send(200, data, ctype)
+            if u.path == "/guide":
+                from ..docs import guide_bytes
+                return self._send(200, guide_bytes(), "text/html; charset=utf-8")
             self._send(404, b"not found", "text/plain")
 
         def do_POST(self):
@@ -76,6 +79,26 @@ def make_handler(api: Api):
             self._api("DELETE")
 
     return Handler
+
+
+def start_background(home: Path | None = None, host: str = "127.0.0.1", port: int = 8765,
+                     tries: int = 20) -> tuple[ThreadingHTTPServer, str]:
+    """Start the interface in a daemon thread on ``port`` or the next free one; return (server, url).
+
+    Used by the terminal interface's ``w`` action so the menus stay usable while the browser is open.
+    """
+    api = Api(home, JobManager())
+    last: OSError | None = None
+    for candidate in range(port, port + tries):
+        try:
+            server = ThreadingHTTPServer((host, candidate), make_handler(api))
+            break
+        except OSError as exc:
+            last = exc
+    else:
+        raise last or OSError("no free port")
+    threading.Thread(target=server.serve_forever, daemon=True, name="aimixe-ui").start()
+    return server, f"http://{host}:{server.server_address[1]}/"
 
 
 def serve(home: Path | None = None, host: str = "127.0.0.1", port: int = 8765, open_browser: bool = True,

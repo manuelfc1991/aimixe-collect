@@ -22,6 +22,15 @@ with `python3 --version` (Windows: `python --version`).
   or run `aimixe collect` from a terminal in that folder. Built without a Windows machine,
   so untested until someone runs it there.
 
+## User guide
+
+`aimixe collect guide` opens the full user guide in your browser (also `g` on the terminal
+home screen, the *User guide* link in the web sidebar, and `user-guide.cmd` in the Windows
+bundle). It covers the command line, the terminal menus and the web interface screen by
+screen, plus scoring, storage, configuration and troubleshooting. Source:
+`docs/guide/user-guide.src.html`; rebuild the packaged single file with
+`python3 tools/build_user_guide.py`.
+
 ## Run
 
 ```bash
@@ -40,6 +49,7 @@ bin/aimixe collect history [COL-20260911-001]
 bin/aimixe collect review
 bin/aimixe collect resume COL-20260911-001
 bin/aimixe collect ui [--port 8765] [--no-browser]   # local web interface, same services
+bin/aimixe collect guide [--path]        # the user guide, in your browser
 ```
 
 Data lives in `~/.aimixe/` (override with `AIMIXE_HOME` or `--home DIR`):

@@ -1,0 +1,1058 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AImixE Data Collection — User Guide</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&family=DM+Mono:wght@400;500&display=swap">
+<style>
+:root { --paper:#fbfbfa; --side:#f6f6f3; --white:#fff; --ink:#14161a; --ink-2:#2b2f36; --ink-3:#4b5058; --muted:#6b7079; --line:#e8e7e2; --line-2:#e0dfd9; --track:#ecebe6;
+  --green:#0e6b57; --green-ink:#0a4f41; --green-soft:#e9f3ef; --amber:#b7791f; --amber-ink:#8a5a10; --amber-soft:#fff8e8; --amber-line:#efd9a6; --red:#9b2c2c; --red-soft:#fbf0f0;
+  --serif:"DM Serif Display",Georgia,"Times New Roman",serif; --sans:"DM Sans","Segoe UI",system-ui,-apple-system,sans-serif; --mono:"DM Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace; }
+* { box-sizing:border-box; }
+html { scroll-behavior:smooth; scroll-padding-top:24px; }
+body { margin:0; font-family:var(--sans); font-size:15px; line-height:1.6; color:var(--ink); background:var(--paper); -webkit-font-smoothing:antialiased; }
+a { color:var(--green); text-decoration:none; } a:hover { color:var(--green-ink); text-decoration:underline; }
+.shell { display:flex; min-height:100vh; }
+.side { width:290px; flex-shrink:0; position:sticky; top:0; height:100vh; overflow-y:auto; padding:26px 18px 40px; background:var(--side); border-right:1px solid var(--line); }
+.brand { display:flex; align-items:baseline; gap:10px; padding:4px 14px 6px; }
+.brand-name { font-family:var(--serif); font-size:26px; letter-spacing:-.01em; }
+.brand-sub { font-size:12px; color:var(--muted); }
+.side .sub { padding:0 14px 18px; font-size:12px; color:var(--muted); }
+.filter { display:flex; align-items:center; gap:8px; margin:0 6px 16px; padding:0 12px; height:36px; border-radius:999px; background:var(--white); border:1px solid var(--line-2); color:var(--muted); }
+.filter input { flex-grow:1; border:0; outline:0; background:transparent; font:inherit; font-size:13px; color:var(--ink); }
+.toc { list-style:none; margin:0; padding:0; }
+.toc li { margin:0; }
+.toc .part { padding:16px 14px 6px; font-size:11px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); }
+.toc a { display:block; padding:6px 14px; border-radius:10px; font-size:13.5px; font-weight:500; color:var(--ink-3); }
+.toc a.l2 { padding-left:28px; font-weight:400; font-size:13px; color:var(--muted); }
+.toc a:hover { background:rgba(20,22,26,.05); text-decoration:none; color:var(--ink); }
+.toc a.on { background:var(--ink); color:var(--white); }
+.toc li.hide { display:none; }
+main { flex-grow:1; min-width:0; padding:48px 64px 120px; max-width:1000px; }
+.eyebrow { font-size:12px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); }
+h1 { font-family:var(--serif); font-weight:400; font-size:46px; letter-spacing:-.02em; line-height:1.05; margin:8px 0 18px; }
+h1 .dim { color:var(--muted); }
+h2 { font-family:var(--serif); font-weight:400; font-size:32px; letter-spacing:-.01em; margin:72px 0 14px; padding-top:20px; border-top:1px solid var(--line); }
+h3 { font-size:18px; font-weight:600; margin:38px 0 10px; }
+h4 { font-size:14px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); margin:28px 0 8px; }
+p { margin:0 0 14px; max-width:760px; }
+.lede { font-size:17px; color:var(--muted); line-height:1.55; max-width:760px; }
+ul, ol { margin:0 0 16px; padding-left:22px; max-width:760px; } li { margin-bottom:5px; }
+code { font-family:var(--mono); font-size:.9em; background:var(--track); padding:1px 6px; border-radius:6px; }
+pre { margin:14px 0 22px; padding:16px 20px; border-radius:14px; background:var(--white); border:1px solid var(--line); font-family:var(--mono); font-size:12.5px; line-height:1.5; overflow-x:auto; white-space:pre; }
+pre code { background:none; padding:0; font-size:inherit; }
+pre.term { background:var(--ink); color:#d8dbe0; border:0; }
+pre.term .p { color:#8fd3bf; }         /* prompt lines */
+pre.term .u { color:#f4d38a; }         /* what you type */
+pre.term .h { color:#fff; font-weight:500; } /* headings */
+pre.term .g { color:#8a8d93; }         /* grey hints */
+pre.term .ok { color:#7ed0b5; } pre.term .warn { color:#f4d38a; } pre.term .bad { color:#f0a3a3; }
+kbd { font-family:var(--mono); font-size:11px; color:var(--muted); padding:2px 7px; border-radius:6px; border:1px solid var(--line-2); background:var(--white); white-space:nowrap; }
+.callout { display:flex; gap:12px; padding:14px 18px; border-radius:14px; margin:16px 0 22px; max-width:760px; background:var(--white); border:1px solid var(--line); font-size:14px; }
+.callout .dot { width:8px; height:8px; border-radius:50%; background:var(--green); flex-shrink:0; margin-top:8px; }
+.callout.warn { background:var(--amber-soft); border-color:var(--amber-line); } .callout.warn .dot { background:var(--amber); }
+.callout p { margin:0; }
+figure { margin:18px 0 30px; }
+figure img { width:100%; max-width:960px; border-radius:14px; border:1px solid var(--line); box-shadow:0 10px 40px rgba(20,22,26,.08); display:block; }
+figcaption { font-size:13px; color:var(--muted); margin-top:10px; max-width:760px; }
+table { border-collapse:collapse; width:100%; max-width:860px; margin:12px 0 24px; font-size:14px; }
+th { text-align:left; font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); padding:0 12px 10px 0; border-bottom:1px solid var(--line); }
+td { padding:10px 12px 10px 0; border-bottom:1px solid var(--line); vertical-align:top; }
+td:first-child { white-space:nowrap; }
+.grid2 { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px; max-width:860px; margin:16px 0 28px; }
+.card { padding:18px 22px; border-radius:16px; background:var(--white); border:1px solid var(--line); }
+.card b { display:block; margin-bottom:6px; }
+.card p { font-size:14px; color:var(--muted); margin:0; }
+.keys { display:grid; grid-template-columns:auto 1fr; gap:8px 18px; max-width:620px; margin:12px 0 22px; font-size:14px; align-items:center; }
+.tag { display:inline-block; padding:1px 8px; border-radius:999px; background:var(--track); font-size:11px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; color:var(--muted); vertical-align:middle; }
+.tag.amber { background:var(--amber-soft); color:var(--amber-ink); } .tag.green { background:var(--green-soft); color:var(--green); } .tag.red { background:var(--red-soft); color:var(--red); }
+.top { position:fixed; right:28px; bottom:28px; padding:10px 16px; border-radius:999px; background:var(--ink); color:var(--white); font-size:13px; font-weight:600; box-shadow:0 8px 30px rgba(0,0,0,.18); }
+.top:hover { color:var(--white); text-decoration:none; }
+@media (max-width:900px) { .shell { flex-direction:column; } .side { position:static; height:auto; width:auto; } main { padding:32px 24px 80px; } .grid2 { grid-template-columns:1fr; } h1 { font-size:36px; } }
+@media print { .side, .top { display:none; } main { padding:0; max-width:none; } pre.term { background:#f3f3f0; color:#222; } }
+</style>
+</head>
+<body>
+<div class="shell">
+<aside class="side">
+  <div class="brand"><span class="brand-name">AImixE</span><span class="brand-sub">Data Collection</span></div>
+  <div class="sub">User guide · version 0.1.0</div>
+  <label class="filter"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg><input id="filter" placeholder="Filter this guide…"></label>
+  <ul class="toc" id="toc">
+    <li class="part">Start here</li>
+    <li><a href="#what">What the tool does</a></li>
+    <li><a href="#install">Install</a></li>
+    <li><a href="#first">Your first five minutes</a></li>
+    <li><a href="#three-ways">Three ways to use it</a></li>
+    <li class="part">Part 1 · Command line</li>
+    <li><a href="#cli">Overview and conventions</a></li>
+    <li><a href="#cli-collect" class="l2">aimixe collect &lt;language&gt;</a></li>
+    <li><a href="#cli-import" class="l2">import</a></li>
+    <li><a href="#cli-review" class="l2">review</a></li>
+    <li><a href="#cli-history" class="l2">history · resume</a></li>
+    <li><a href="#cli-search" class="l2">search (engines)</a></li>
+    <li><a href="#cli-catalogue" class="l2">catalogue</a></li>
+    <li><a href="#cli-ui" class="l2">ui · guide</a></li>
+    <li><a href="#cli-env" class="l2">Environment, exit codes</a></li>
+    <li class="part">Part 2 · Terminal interface</li>
+    <li><a href="#tui">Keys that work everywhere</a></li>
+    <li><a href="#tui-home" class="l2">Home screen</a></li>
+    <li><a href="#tui-language" class="l2">Naming a language</a></li>
+    <li><a href="#tui-profile" class="l2">Language profile</a></li>
+    <li><a href="#tui-menu" class="l2">Data Collection menu</a></li>
+    <li><a href="#tui-catalogue" class="l2">Catalogue Search</a></li>
+    <li><a href="#tui-agent" class="l2">Agent Search</a></li>
+    <li><a href="#tui-offline" class="l2">Offline Collection</a></li>
+    <li><a href="#tui-import" class="l2">Import Files / Folder</a></li>
+    <li><a href="#tui-collection" class="l2">View Existing Collection</a></li>
+    <li><a href="#tui-review" class="l2">Review queue</a></li>
+    <li><a href="#tui-history" class="l2">History</a></li>
+    <li><a href="#tui-settings" class="l2">Settings</a></li>
+    <li><a href="#tui-web" class="l2">w · g: browser from the terminal</a></li>
+    <li class="part">Part 3 · Web interface</li>
+    <li><a href="#web">Starting it</a></li>
+    <li><a href="#web-home" class="l2">Home</a></li>
+    <li><a href="#web-find" class="l2">New language</a></li>
+    <li><a href="#web-profile" class="l2">Profile</a></li>
+    <li><a href="#web-catalogue" class="l2">Catalogue search</a></li>
+    <li><a href="#web-agent" class="l2">Agent search</a></li>
+    <li><a href="#web-offline" class="l2">Offline · Import</a></li>
+    <li><a href="#web-collection" class="l2">Collection</a></li>
+    <li><a href="#web-review" class="l2">Review queue</a></li>
+    <li><a href="#web-history" class="l2">History</a></li>
+    <li><a href="#web-settings" class="l2">Settings · Catalogues</a></li>
+    <li><a href="#web-keys" class="l2">Shortcuts and addresses</a></li>
+    <li class="part">Part 4 · Reference</li>
+    <li><a href="#ref-relevance">Relevance scoring</a></li>
+    <li><a href="#ref-profile">Profile fields</a></li>
+    <li><a href="#ref-storage">Where things are stored</a></li>
+    <li><a href="#ref-config">config.toml</a></li>
+    <li><a href="#ref-engines">Search engines, China, keys</a></li>
+    <li><a href="#ref-agents">Agent providers</a></li>
+    <li><a href="#ref-catalogues">Catalogue providers</a></li>
+    <li><a href="#ref-trouble">Troubleshooting</a></li>
+  </ul>
+</aside>
+
+<main>
+<span class="eyebrow">AImixE Data Collection Module · user guide</span>
+<h1>Everything you can do,<br><span class="dim">from the command line, the terminal menus and the browser.</span></h1>
+<p class="lede">AImixE collects language resources for one language at a time: it finds them in catalogues and on the web, on your own disk, or takes the files you give it. Every file is hashed, classified, stored unchanged and indexed with where it came from. This guide walks through every screen, key and command.</p>
+
+<div class="grid2">
+  <div class="card"><b>Part 1 · Command line</b><p>Every command and flag, for scripts and one-off runs. <a href="#cli">Go →</a></p></div>
+  <div class="card"><b>Part 2 · Terminal interface</b><p>The menus you get when you just type <code>aimixe collect</code>. <a href="#tui">Go →</a></p></div>
+  <div class="card"><b>Part 3 · Web interface</b><p>The same tool in your browser, screen by screen. <a href="#web">Go →</a></p></div>
+  <div class="card"><b>Part 4 · Reference</b><p>Scoring, storage, configuration, engines, troubleshooting. <a href="#ref-relevance">Go →</a></p></div>
+</div>
+
+<!-- ============================================================== START HERE -->
+<h2 id="what">What the tool does</h2>
+<p>You name a <b>language</b> (a name or an ISO 639-3 code). The tool builds a <b>language profile</b> for it: names, family, scripts, region, varieties, speakers, known resources. The profile is what every search is built from, so the fuller it is, the better the results.</p>
+<p>Then you <b>collect</b>, in any of three ways:</p>
+<ul>
+  <li><b>Online.</b> <i>Catalogue Search</i> asks archives and repositories (Glottolog, Zenodo, Internet Archive, Kaipuleohone, and lookup links for OLAC, ELAR, PARADISEC, Pangloss). <i>Agent Search</i> plans web queries from the profile, reads the pages it finds, follows links to files and learns new names as it goes.</li>
+  <li><b>Offline.</b> Scan folders on this machine for files whose names or contents mention the language.</li>
+  <li><b>Import.</b> Hand it a file or a folder you already have.</li>
+</ul>
+<p>Whatever the source, every file goes through the same pipeline: SHA-256 hash, duplicate check, format detection, resource-type classification, <a href="#ref-relevance">relevance scoring</a>, text extraction, and storage under <code>~/.aimixe</code> with a provenance record. Nothing is ever modified or deleted.</p>
+<p>Anything uncertain lands in the <b>review queue</b>: resources that scored in the middle band, and language facts the catalogues or the agent proposed. Nothing reaches the profile or the confirmed collection until you accept it.</p>
+
+<h2 id="install">Install</h2>
+<p>Python 3.11 or newer. No third-party packages are needed, ever.</p>
+<h3>Linux and macOS, without installing</h3>
+<pre><code>cd collect
+./bin/aimixe collect</code></pre>
+<h3>Any operating system, with pip</h3>
+<pre><code>cd collect
+pip install .
+aimixe collect          # now works from any folder, in any shell (PowerShell, cmd, bash, zsh)</code></pre>
+<h3>Windows without Python</h3>
+<p>Unzip the portable bundle (<code>aimixe-collect-windows-&lt;version&gt;.zip</code> from the releases page, or built with <code>python3 tools/build_windows_bundle.py</code>). It contains Python itself, so nothing is installed. In the unzipped folder:</p>
+<table>
+<tr><th>File</th><th>What it does</th></tr>
+<tr><td><code>aimixe-ui.cmd</code></td><td>Double-click: opens the web interface in your browser.</td></tr>
+<tr><td><code>user-guide.cmd</code></td><td>Double-click: opens this guide.</td></tr>
+<tr><td><code>aimixe.cmd</code></td><td>The command line. Open a terminal in the folder and run <code>aimixe collect</code>.</td></tr>
+</table>
+<div class="callout warn"><span class="dot"></span><p>If Python is missing and you would rather install it: Linux <code>sudo apt install python3</code>; macOS type <code>python3</code> in Terminal and accept the prompt, or <code>brew install python</code>; Windows use the python.org installer and tick "Add python.exe to PATH". Optional on any OS: <code>pdftotext</code> (poppler) gives better text from PDFs and is used automatically when present.</p></div>
+<p>Everything the tool stores goes to <code>~/.aimixe/</code> (Windows: <code>C:\Users\you\.aimixe\</code>). Change it with <code>--home DIR</code> or the <code>AIMIXE_HOME</code> environment variable. See <a href="#ref-storage">Where things are stored</a>.</p>
+
+<h2 id="first">Your first five minutes</h2>
+<ol>
+  <li>Run <code>aimixe collect</code>. You see the welcome text and are asked for a language.</li>
+  <li>Type a name or a code, for example <code>Tangsa</code> or <code>nst</code>. The tool shows what it found (name, code, alternative names, region, family) and asks <i>Continue with this language?</i> Press Enter.</li>
+  <li>The profile summary appears: what is already known from the bundled tables and what is missing. Answer <code>y</code> to fill in fields now, or <code>n</code> to skip. Every question can be left blank.</li>
+  <li>The Data Collection menu appears. Type <code>1</code> for Online Collection, then <code>1</code> again for Catalogue Search. Press Enter to search all catalogues, look at the scored results, set a minimum relevance and confirm the download.</li>
+  <li>When the session summary shows "Pending review" above zero, press <code>b</code> until you reach the home screen and type <code>r</code> to go through the queue: <kbd>A</kbd> accept, <kbd>R</kbd> reject, <kbd>V</kbd> view the source, <kbd>S</kbd> skip, <kbd>B</kbd> back.</li>
+</ol>
+<p>Prefer a browser? Type <code>w</code> on the home screen, or run <code>aimixe collect ui</code>. <a href="#web">Part 3</a> covers every screen.</p>
+
+<h2 id="three-ways">Three ways to use it</h2>
+<table>
+<tr><th>Way</th><th>Start it with</th><th>Best for</th></tr>
+<tr><td>Command line</td><td><code>aimixe collect nst --catalogue --yes</code></td><td>Scripts, repeated runs, remote machines over SSH, one-off actions such as <code>import</code> or <code>history --json</code>.</td></tr>
+<tr><td>Terminal interface</td><td><code>aimixe collect</code></td><td>Working through a language step by step in a terminal. Numbered menus, <code>b</code> for back, <code>?</code> for help.</td></tr>
+<tr><td>Web interface</td><td><code>aimixe collect ui</code> or <code>w</code> in the terminal</td><td>The same services with a visual profile, tables, progress bars and a two-pane review queue. Local only: it listens on 127.0.0.1.</td></tr>
+</table>
+<p>All three read and write the same data. You can search in the browser, review in the terminal and script an import, and every session shows up in the same history.</p>
+
+<!-- ============================================================== PART 1 -->
+<h2 id="cli">Part 1 · Command line: overview and conventions</h2>
+<p>The program is <code>aimixe collect</code>. On Linux and macOS without installing, write <code>./bin/aimixe collect</code>; in the Windows bundle, <code>aimixe.cmd collect</code>. The examples below use the short form.</p>
+<pre class="term"><span class="p">$ aimixe collect --help</span>
+usage: aimixe collect [-h] [--version] [--no-color] [--online] [--offline]
+                      [--catalogue] [--agent] [--scan PATH] [--import PATH]
+                      [--profile] [--mode {copy,move,reference}] [--yes]
+                      [--home DIR]
+                      [language]
+
+examples:
+  aimixe collect                      interactive: name a language, build its profile, collect
+  aimixe collect nst                  start with a language (name, ISO 639-3 code or alias)
+  aimixe collect nst --catalogue      search catalogues, then download what scores high enough
+  aimixe collect nst --agent          web search planned from the profile (rule-based or a model CLI)
+  aimixe collect nst --scan ~/Docs    offline: find files on this machine about the language
+  aimixe collect import grammar.pdf   add a file or folder (copy | move | reference)
+  aimixe collect review               accept or reject uncertain resources and proposed facts
+  aimixe collect history              past collection sessions
+  aimixe collect catalogue list       catalogue providers (add | remove)
+  aimixe collect search list          web search engines for Agent Search (use | add | remove | test)
+  aimixe collect ui                   the same, in your browser
+  aimixe collect guide                the user guide, in your browser
+in any menu: number or text to choose, b = back, q = quit, ? = help.</pre>
+<p>Two flags are accepted by every command:</p>
+<table>
+<tr><th>Flag</th><th>Meaning</th></tr>
+<tr><td><code>--home DIR</code></td><td>Use <code>DIR</code> instead of <code>~/.aimixe</code>. Handy for a second, separate collection or for tests.</td></tr>
+<tr><td><code>--no-color</code></td><td>Plain output without colours. The <code>NO_COLOR</code> environment variable does the same.</td></tr>
+</table>
+<p>Anywhere the tool asks a question, <code>?</code> prints help for that question, <code>q</code> quits, and in menus <code>b</code> goes back. When output is piped or not a terminal, colours are switched off automatically.</p>
+
+<h3 id="cli-collect">aimixe collect &lt;language&gt; [options]</h3>
+<p>With a language and no other option, this opens the profile step and then the Data Collection menu for that language (see <a href="#tui-menu">Part 2</a>). The options below run one action directly and then return to the shell.</p>
+<table>
+<tr><th>Option</th><th>Does</th></tr>
+<tr><td><code>--profile</code></td><td>Opens the Language Profile menu (complete, review, edit, propose values).</td></tr>
+<tr><td><code>--catalogue</code></td><td>Catalogue Search. Asks which catalogues and the minimum relevance unless <code>--yes</code> is given.</td></tr>
+<tr><td><code>--agent</code></td><td>Agent Search. Shows the planned queries and asks to run them unless <code>--yes</code> is given.</td></tr>
+<tr><td><code>--online</code></td><td>The Online Collection sub-menu (choose between the two above).</td></tr>
+<tr><td><code>--scan PATH</code></td><td>Offline scan of <code>PATH</code>. Repeat the flag for several folders. Uses <code>--mode</code> or the configured storage mode and the configured content setting, without asking.</td></tr>
+<tr><td><code>--offline</code></td><td>Offline Collection, asking for the folders interactively.</td></tr>
+<tr><td><code>--import PATH</code></td><td>Import a file or folder into this language.</td></tr>
+<tr><td><code>--mode copy|move|reference</code></td><td>Storage mode for <code>--scan</code> and <code>--import</code>: <b>copy</b> leaves the original in place (default), <b>move</b> relocates it, <b>reference</b> only records where it is.</td></tr>
+<tr><td><code>--yes</code>, <code>-y</code></td><td>Accept the detected language without asking and skip the confirmation questions of <code>--catalogue</code> and <code>--agent</code>. What you want in scripts.</td></tr>
+</table>
+<p>Options combine and run in this order: profile, scan, offline, import, catalogue, agent, online.</p>
+<pre><code># non-interactive catalogue search for Nocte, then an offline scan of two folders, referenced in place
+aimixe collect njb --catalogue --yes
+aimixe collect njb --scan ~/fieldwork --scan /media/usb/recordings --mode reference</code></pre>
+<p>If the name is ambiguous (several languages match), the candidates are listed and you pick one; with <code>--yes</code> the best candidate is taken when its score is high enough. If nothing matches, you are offered to create a profile with a local identifier.</p>
+
+<h3 id="cli-import">aimixe collect import &lt;path&gt;</h3>
+<pre class="term"><span class="p">$ aimixe collect import --help</span>
+usage: aimixe collect import [-h] [--home DIR] [--no-color] [--language LANGUAGE]
+                             [--mode {copy,move,reference}] [--yes] path</pre>
+<table>
+<tr><th>Option</th><th>Does</th></tr>
+<tr><td><code>path</code></td><td>A file or a folder. Folders are walked recursively; every file is imported.</td></tr>
+<tr><td><code>--language</code>, <code>-l</code></td><td>Which language. If omitted, the home screen asks.</td></tr>
+<tr><td><code>--mode</code></td><td>copy, move or reference (see above).</td></tr>
+</table>
+<p>Every file is hashed, checked against everything already stored (a byte-identical file is linked as a duplicate and not stored twice), typed, classified, scored and stored with its original path recorded. The command prints one line per file and the session summary. Exit code 10 when any file failed.</p>
+<pre class="term"><span class="p">$ aimixe collect import ~/Documents/tangsa/grammar.pdf -l nst</span>
+Importing /home/you/Documents/tangsa/grammar.pdf (copy) …
+  <span class="ok">stored</span>    100 grammar.pdf [grammar]
+
+<span class="h">Collection Session: COL-20260911-002</span>
+Language: Tangsa [nst]
+Mode: Import
+
+Discovered: 1
+Relevant: 1
+Downloaded: 1
+Duplicates: 0
+Failed: 0
+Pending review: 0
+  <span class="g">took 0s · 1.2 MB stored</span></pre>
+
+<h3 id="cli-review">aimixe collect review [--language ID]</h3>
+<p>Opens the review queue. With several languages waiting and no <code>--language</code>, the picker asks which queue to open (a number, <code>a</code> for all, <code>b</code> back). The screen itself is described in <a href="#tui-review">Part 2</a>.</p>
+
+<h3 id="cli-history">aimixe collect history [session-id] · resume</h3>
+<pre class="term"><span class="p">$ aimixe collect history</span>
+session           language      mode                status    started           disc  rel  down  dup  fail  review
+----------------  ------------  ------------------  --------  ----------------  ----  ---  ----  ---  ----  ------
+COL-20260911-001  Tangsa [nst]  Offline Collection  finished  2026-09-11 15:49  2     2    2     0    0     0
+COL-20260911-002  Tangsa [nst]  Import              finished  2026-09-11 15:49  1     1    1     0    0     0
+COL-20260911-003  Tangsa [nst]  Offline Collection  finished  2026-09-11 15:49  1     1    1     0    0     1</pre>
+<table>
+<tr><th>Form</th><th>Does</th></tr>
+<tr><td><code>history</code></td><td>Every session, newest first. Columns: discovered, relevant, downloaded (stored), duplicates, failed, sent to review.</td></tr>
+<tr><td><code>history --language nst</code></td><td>Only that language.</td></tr>
+<tr><td><code>history --json</code></td><td>The same as JSON, for scripts.</td></tr>
+<tr><td><code>history COL-20260911-003</code></td><td>One session's summary followed by its full event log (timestamp, level, message).</td></tr>
+<tr><td><code>resume COL-20260911-003</code></td><td>Re-runs an <i>interrupted</i> or <i>failed</i> Offline Collection or Import session with the same parameters. Files already stored are linked as duplicates, so nothing is stored twice. Other modes and finished sessions are not resumable (exit code 20).</td></tr>
+</table>
+
+<h3 id="cli-search">aimixe collect search — the web search engines Agent Search uses</h3>
+<pre class="term"><span class="p">$ aimixe collect search list</span>
+name        kind  state               region                                   what
+----------  ----  ------------------  ---------------------------------------  ----------------------------------------------
+duckduckgo  html  enabled             global (blocked in some countries)       DuckDuckGo HTML endpoint; no key; sometimes answers with a bot check
+bing        rss   enabled             global (works in China)                  Bing RSS feed; no key; few results per query
+wikipedia   json  enabled             global (blocked in some countries)       Wikipedia article search; reliable; set lang to zh, ru, hi … for other editions
+baidu       html                      China                                    unverified · Baidu result page (China). Best effort …
+brave       json  needs key           global                                   unverified · Brave Search API; free tier with a key …
+google_cse  json  needs key           global (blocked in China)                unverified · Google Programmable Search JSON API …
+searxng     json                      wherever your instance is; self-hostable unverified · SearXNG meta-search (JSON) …
+serpapi     json  needs key           global                                   unverified · SerpAPI (Google, Baidu, Yandex … via one key) …
+sogou       html                      China                                    unverified · Sogou result page (China) …
+yandex_xml  rss   needs key           Russia and neighbours                    unverified · Yandex XML search API …</pre>
+<table>
+<tr><th>Command</th><th>Does</th></tr>
+<tr><td><code>search list</code></td><td>Every engine: enabled or not, whether it needs a key, region, and whether it has been verified from the build machine.</td></tr>
+<tr><td><code>search use bing searxng</code></td><td>Sets which engines are asked, in this order. With no names, an interactive picker (numbers in order, e.g. <code>3 1 2</code>).</td></tr>
+<tr><td><code>search test baidu "Zhuang language"</code></td><td>Runs one query against one engine and prints the hits, so you can see what works from where you are. Exit code 10 when it returns nothing.</td></tr>
+<tr><td><code>search add</code></td><td>Guided questions to add your own engine (name, kind json/rss/html, URL template with <code>{q}</code>, key, result paths). Saved to <code>~/.aimixe/search-engines/&lt;name&gt;.toml</code>.</td></tr>
+<tr><td><code>search add --file my.toml</code></td><td>The same from a TOML file (one engine, or a list under <code>[[engine]]</code>).</td></tr>
+<tr><td><code>search remove NAME</code></td><td>Removes an added engine, or unselects a built-in one.</td></tr>
+</table>
+<p>Keys for engines that need one go under <code>[agent.search_keys]</code> in <code>config.toml</code> or in the environment as <code>AIMIXE_SEARCH_KEY_&lt;NAME&gt;</code>. Details and the China-specific advice are in <a href="#ref-engines">the reference</a>.</p>
+
+<h3 id="cli-catalogue">aimixe collect catalogue — catalogue providers</h3>
+<pre class="term"><span class="p">$ aimixe collect catalogue list</span>
+name              kind    enabled  source    what
+----------------  ------  -------  --------  ------------------------------------------------------------
+glottolog         record  yes      built-in  the reference catalogue of the world's languages: classifica
+zenodo            record  yes      built-in  open research repository: papers, datasets, recordings
+internet_archive  record  yes      built-in  Internet Archive items: books, recordings, films, datasets
+kaipuleohone      record  yes      built-in  Kaipuleohone (University of Hawaiʻi digital language archive
+olac              lookup  yes      built-in  Open Language Archives index — what participating archives h
+elar              lookup  yes      built-in  Endangered Languages Archive deposits (site search; deposits
+paradisec         lookup  yes      built-in  PARADISEC catalogue (blocks automated clients; open in a bro
+pangloss          lookup  yes      built-in  Pangloss Collection (LACITO/CNRS) — browse the language list</pre>
+<table>
+<tr><th>Command</th><th>Does</th></tr>
+<tr><td><code>catalogue list</code></td><td>Providers with kind (<b>record</b> providers answer with results the tool can score and download; <b>lookup</b> providers only give you a URL to open), enabled state and source.</td></tr>
+<tr><td><code>catalogue add</code></td><td>Guided: name, kind (lookup, api_json, html_links), URL template with <code>{q}</code> <code>{name}</code> <code>{code}</code>, search by name or code, description, licence note, and for JSON APIs the dotted paths to the result list and fields. Saved to <code>~/.aimixe/catalogues/&lt;name&gt;.toml</code>.</td></tr>
+<tr><td><code>catalogue add --file x.toml</code></td><td>The same from a file.</td></tr>
+<tr><td><code>catalogue remove NAME</code></td><td>Removes a custom catalogue or disables a built-in one (listed under <code>disabled_catalogues</code> in config).</td></tr>
+</table>
+
+<h3 id="cli-ui">aimixe collect ui · aimixe collect guide</h3>
+<table>
+<tr><th>Command</th><th>Does</th></tr>
+<tr><td><code>ui</code></td><td>Starts the local web interface and opens it in your browser. Prints the address; Ctrl-C stops it.</td></tr>
+<tr><td><code>ui --port 9000</code></td><td>Another port (default 8765). Exit code 50 if the port is taken.</td></tr>
+<tr><td><code>ui --host 0.0.0.0</code></td><td>Listen on all interfaces. There is no login, so only do this on a trusted network; for a remote machine prefer SSH port forwarding: <code>ssh -L 8765:127.0.0.1:8765 host</code>.</td></tr>
+<tr><td><code>ui --no-browser</code></td><td>Do not open a browser tab; just print the address.</td></tr>
+<tr><td><code>guide</code></td><td>Opens this guide in your browser.</td></tr>
+<tr><td><code>guide --path</code></td><td>Only prints where the guide file is.</td></tr>
+</table>
+
+<h3 id="cli-env">Environment variables and exit codes</h3>
+<table>
+<tr><th>Variable</th><th>Meaning</th></tr>
+<tr><td><code>AIMIXE_HOME</code></td><td>Data directory instead of <code>~/.aimixe</code> (the <code>--home</code> flag wins over it).</td></tr>
+<tr><td><code>AIMIXE_SEARCH_KEY_&lt;NAME&gt;</code></td><td>API key for a search engine, e.g. <code>AIMIXE_SEARCH_KEY_BRAVE</code>, <code>AIMIXE_SEARCH_KEY_GOOGLE_CSE</code>.</td></tr>
+<tr><td><code>NO_COLOR</code></td><td>Plain output.</td></tr>
+<tr><td><code>PYTHONUTF8=1</code></td><td>Set by the Windows launcher so names in any script print correctly.</td></tr>
+</table>
+<table>
+<tr><th>Exit code</th><th>Meaning</th></tr>
+<tr><td>0</td><td>Success.</td></tr>
+<tr><td>10</td><td>The tool's own check failed (an import had failures; an engine test returned nothing).</td></tr>
+<tr><td>20</td><td>Not evaluable: the session cannot be resumed, or the feature is not in this build.</td></tr>
+<tr><td>40</td><td>Invalid input: unknown language, missing path, bad TOML.</td></tr>
+<tr><td>50</td><td>Configuration: the web port is in use.</td></tr>
+<tr><td>70</td><td>Internal error.</td></tr>
+</table>
+
+<!-- ============================================================== PART 2 -->
+<h2 id="tui">Part 2 · Terminal interface: keys that work everywhere</h2>
+<p>Run <code>aimixe collect</code> with no arguments. Every screen is a list of numbered or lettered choices and a prompt line starting with <code>&gt;</code>.</p>
+<div class="keys">
+  <kbd>1</kbd><span>A number picks that menu item. You can also type the start of an item's text: <code>off</code> for Offline Collection.</span>
+  <kbd>Enter</kbd><span>Takes the default: the item marked <code>›</code>, which is the last choice you made in that menu, or the value shown in brackets.</span>
+  <kbd>b</kbd><span>Back to the previous screen. In a menu, it picks the Back or Exit item.</span>
+  <kbd>q</kbd><span>Quit the program from anywhere. Running collections finish or are recorded as interrupted; nothing half-written is left behind.</span>
+  <kbd>?</kbd><span>Help for the current question.</span>
+  <kbd>blank</kbd><span>In the profile questions, leaves a field unanswered. Every field can be skipped.</span>
+</div>
+
+<h3 id="tui-home">Home screen</h3>
+<p>The first screen lists every language you have entered, with its state and a suggested next step, then the actions.</p>
+<pre class="term"><span class="h">AImixE — Data Collection   v0.1.0</span>
+────────────────────────────────────────────────────────────────────────────────────
+
+   1  Tangsa  nst  4 resource(s)  <span class="warn">2 to review</span>  <span class="g">last: today 15:49 · Offline Collection</span>
+      <span class="g">→ go through what is waiting (2 item(s) in the review queue)</span>
+
+  n  new language  <span class="g">(name or ISO 639-3 code)</span>
+  r  review everything waiting  <span class="warn">(2 item(s))</span>
+  h  collection history
+  w  web interface  <span class="g">(opens in your browser; the terminal stays usable)</span>
+  g  user guide  <span class="g">(opens in your browser)</span>
+  s  settings: agent, search engines, catalogues
+  q  leave
+
+Choose a number or a letter:
+<span class="p">&gt;</span> </pre>
+<table>
+<tr><th>Key</th><th>Does</th></tr>
+<tr><td>a number</td><td>Opens that language: profile step, then the Data Collection menu.</td></tr>
+<tr><td><code>n</code></td><td>Asks for a new language name or code. Typing a name or code directly at this prompt does the same.</td></tr>
+<tr><td><code>r</code></td><td>The review picker: choose which language's queue to go through, or all.</td></tr>
+<tr><td><code>h</code></td><td>Collection history for all languages.</td></tr>
+<tr><td><code>w</code></td><td>Starts the web interface in the background and opens it in your browser. The terminal stays usable; the server stops when you leave with <code>q</code>. See <a href="#tui-web">below</a>.</td></tr>
+<tr><td><code>g</code></td><td>Opens this guide in your browser.</td></tr>
+<tr><td><code>s</code></td><td>Settings: agent provider, search engines, catalogues.</td></tr>
+<tr><td><code>q</code></td><td>Leave.</td></tr>
+</table>
+<p>The tags after each language: <span class="tag amber">local id</span> when the language has no ISO code, the resource count, <span class="tag amber">n to review</span>, and when it was last collected and how. The suggested step changes with the state: start collecting, go through the queue, complete the profile, or collect more.</p>
+
+<h3 id="tui-language">Naming a language</h3>
+<p>Type a language name, an ISO 639-3 code, an alternative name or a dialect name. Your own registry is searched first, then the bundled ISO 639-3 and Glottolog tables. Three things can happen.</p>
+<h4>Exact match</h4>
+<pre class="term">Enter language name or ISO 639-3 code:
+<span class="p">&gt;</span> <span class="u">Tangsa</span>
+
+<span class="h">Language detected</span>
+
+Name: Tangsa
+ISO 639-3: nst
+Alternative names: Tase Naga, Pangwa Naga, Naga, Tase, Cham Chang, Chang, Jugli
+Region: India / Myanmar
+Family: Sino-Tibetan
+Matched on: alternate name “Tangsa”
+
+Continue with this language? [Y/n]
+<span class="p">&gt;</span> <span class="u">y</span>
+Profile created for Tangsa [nst].</pre>
+<p>Answer <code>n</code> to search again; if other candidates exist you are offered them. "Source: local language registry" means you have opened this language before and its profile is already stored.</p>
+<h4>Several matches</h4>
+<p>A numbered list of candidates with code, region and what matched ("matched alternate name …"). Pick one, or "None of these".</p>
+<h4>No match</h4>
+<pre class="term">No language found for “Kimsa” in the local registry or the bundled ISO 639-3 / Glottolog tables.
+
+<span class="h">Language identification</span>
+
+ 1. Search again with a different name or code
+ 2. Create a new language profile with this name
+ 3. Exit</pre>
+<p>Choosing 2 asks for the name to record and, if you know it, an ISO 639-3 code. Without a valid code the language gets a local identifier (<code>x-kimsa</code>) and is tagged <span class="tag amber">local id</span> everywhere.</p>
+
+<h3 id="tui-profile">Language profile</h3>
+<p>After the language is chosen, the profile summary shows what the bundled tables already know and what is missing, section by section.</p>
+<pre class="term"><span class="h">Language profile found.</span>
+
+Known:
+  <span class="ok">✓</span> Names and classification     Family · Alternative names · Scripts
+  <span class="ok">✓</span> Location and varieties       Varieties · Region
+  <span class="ok">✓</span> Resources                    Linguistic studies
+  <span class="warn">?</span> Community                    Transmission <span class="g">(uncertain — will be asked again)</span>
+
+Missing or uncertain:
+  – Names and classification     Exonyms · Parent language/group · Notes
+  – Location and varieties       Orthography status · Literacy · Places · Other languages
+  – Resources                    Resource summary · Written materials · Recordings · Digital resources · Speaker estimate
+  – Community                    Speaker estimate basis · Age spread · Domains of use · Displacement · Community information
+  – Translation and publication  Translations · Publications
+
+  <span class="g">7 known · 20 to fill. Every field can be skipped; answers are saved as you go.</span>
+
+Complete missing profile information? [Y/n]
+<span class="p">&gt;</span> </pre>
+<p><code>y</code> asks the missing fields one at a time, grouped by section, with a progress list at the top of each group. Blank skips a field. <code>n</code> continues with what is known. Choosing <i>Language Profile</i> from the Data Collection menu, or <code>--profile</code> on the command line, opens the full menu:</p>
+<pre class="term"><span class="h">Language Profile</span>
+
+ 1. Complete missing information
+    <span class="g">→ 20 field(s) missing or uncertain, asked group by group; blank skips a field</span>
+ 2. Review existing profile
+    <span class="g">→ every field with its value and where each value came from</span>
+ 3. Edit profile
+    <span class="g">→ change any field, one section or all of them</span>
+ 4. Skip and continue collection
+ 5. Ask catalogues and the agent to propose values
+    <span class="g">→ Glottolog plus a short read of pages about the language; nothing downloaded; you accept or reject each fact</span></pre>
+<table>
+<tr><th>Item</th><th>Does</th></tr>
+<tr><td>1 Complete missing information</td><td>Asks every missing or uncertain field. Answers are saved as you go, so you can stop at any time.</td></tr>
+<tr><td>2 Review existing profile</td><td>Prints every field with its value and its provenance: source (bundled tables, you, a catalogue, the agent), confidence, year, note. Values from different sources are kept side by side; nothing is overwritten.</td></tr>
+<tr><td>3 Edit profile</td><td>Pick a section (or all fields) and answer each field again. A new answer is stored as a new value from source <i>user</i> and becomes the preferred one.</td></tr>
+<tr><td>4 Skip and continue</td><td>To the Data Collection menu.</td></tr>
+<tr><td>5 Propose values</td><td>Asks Glottolog for classification and dialect names and lets the agent read a few pages about the language. Every fact found goes to the review queue with its source and a quote; nothing is written to the profile until you accept it. At the end you are offered to review the proposals right away.</td></tr>
+</table>
+<p>How each kind of field is asked (numbers, ranges, states, places, lists) is in <a href="#ref-profile">the profile reference</a>.</p>
+
+<h3 id="tui-menu">Data Collection menu</h3>
+<pre class="term">Tangsa [nst]  4 resource(s)  <span class="g">b = back · q = quit · ? = help</span>
+
+<span class="h">Data Collection</span>
+
+Language: Tangsa [nst]
+
+ 1. Online Collection
+    <span class="g">→ catalogues and archives, or an agent searching the web</span>
+ 2. Offline Collection
+    <span class="g">→ scan folders on this machine for files about the language</span>
+ 3. Import Files / Folder
+    <span class="g">→ add a file or folder you already have</span>
+ 4. View Existing Collection
+    <span class="g">→ 4 resource(s) stored · 2 waiting in the review queue</span>
+ 5. Language Profile
+    <span class="g">→ complete, review or edit the language profile</span>
+ 6. Web Interface
+    <span class="g">→ this language in your browser</span>
+ 7. User Guide
+    <span class="g">→ the guide, in your browser</span>
+ 8. Exit
+    <span class="g">→ back to the list of languages</span></pre>
+<p>Online Collection opens a sub-menu with <b>Catalogue Search</b> and <b>Agent Search</b>. Each action returns here when it finishes; <i>Exit</i> or <code>b</code> returns to the home screen.</p>
+
+<h3 id="tui-catalogue">Catalogue Search</h3>
+<p>Asks every enabled catalogue with the whole profile: ISO code, name, alternative names, varieties, known publications. The screen first lists the providers and whether each can search for this language (a provider that searches by code is skipped for a language with a local identifier).</p>
+<pre class="term"><span class="h">Catalogue Search · Yongnan Zhuang [zyn]</span>
+
+  glottolog          record  the reference catalogue of the world's languages …
+  zenodo             record  open research repository: papers, datasets, recordings
+  internet_archive   record  Internet Archive items: books, recordings, films, datasets
+  kaipuleohone       record  Kaipuleohone (University of Hawaiʻi digital language archive)
+  olac               lookup  Open Language Archives index …
+  elar               lookup  Endangered Languages Archive deposits …
+  paradisec          lookup  PARADISEC catalogue …
+  pangloss           lookup  Pangloss Collection …
+
+Search all enabled catalogues? [Y/n]
+<span class="p">&gt;</span> <span class="u">y</span>
+Searching …
+  glottolog: 1 result(s)
+  zenodo: 38 result(s)
+  internet_archive: 7 result(s)
+  kaipuleohone: 0 result(s)
+  search took 15 s
+
+score  band            catalogue         title                                                     files
+-----  --------------  ----------------  --------------------------------------------------------  -----
+  <span class="ok">100</span>  Very high       glottolog         Glottolog languoid: Yongnan Zhuang [yong1275]             1
+   <span class="warn">59</span>  Possible match  zenodo            Ways of Singing in Napo County (Guangxi Zhuang Autonomo…  2
+   <span class="warn">55</span>  Possible match  zenodo            Linguistic Map of “Breast” in Zhuang and Its Interpretat…  1
+    <span class="g">4</span>  Unrelated       zenodo            Isopsestis poculiformis Zhuang, Owada &amp; Wang 2015          1
+
+Places to open in a browser (no machine-readable search):
+  olac           https://search.language-archives.org/search.html?q=zyn
+  elar           https://www.elararchive.org/?s=Yongnan+Zhuang
+  paradisec      https://catalog.paradisec.org.au/languages/zyn
+  pangloss       https://pangloss.cnrs.fr/languages
+
+5 result(s) at or above 30: 1 confirmed, 4 would go to the review queue; 3 below the default minimum of 50.
+Minimum relevance to download and store [50]:
+<span class="p">&gt;</span> <span class="u">30</span>
+Download and store now? [Y/n]
+<span class="p">&gt;</span> <span class="u">y</span></pre>
+<p>Answering <code>n</code> to "Search all" lets you type the catalogue names to use, comma separated. Every result is scored (<a href="#ref-relevance">how</a>) and shown with its band. Then you set the <b>minimum relevance</b>: results at or above it are downloaded; among those, scores of 70 and above are confirmed, 30 to 69 go to the review queue. Results below the minimum are recorded in the session but not downloaded.</p>
+<p>During the download a progress board shows each file with its size, speed and time left, plus one line per stored, duplicate, review or failed item. At the end: the session summary, how many language facts the catalogues proposed for review (Glottolog's classification and dialect names, for instance), and where the lookup links were saved as a manifest.</p>
+
+<h3 id="tui-agent">Agent Search</h3>
+<p>The agent turns the profile into web queries, reads the pages, follows links to downloadable files and repositories (Zenodo, Internet Archive, GitHub), scores everything before downloading, and proposes what it learns.</p>
+<pre class="term"><span class="h">Agent Search · Yongnan Zhuang [zyn]</span>
+
+Agent provider: claude
+Use a different agent provider? [y/N]
+<span class="p">&gt;</span>
+Web search engines: duckduckgo, bing, wikipedia
+Change the search engines? [y/N]
+<span class="p">&gt;</span>
+Planning queries from the language profile …
+
+   1. [name] "Yongnan Zhuang" language
+   2. [name] "Yongnan Zhuang" dictionary
+   3. [name] "Yongnan Zhuang" grammar
+   4. [code] ISO 639-3 zyn
+   5. [alternate_name] "Bou Rau" language   <span class="g">← alternative name from the profile</span>
+   …
+Add your own queries (separate with ';'), or blank:
+<span class="p">&gt;</span> <span class="u">Yongnan Zhuang audio recordings; 邕南壮语</span>
+Run 18 queries now? [Y/n]
+<span class="p">&gt;</span> <span class="u">y</span>
+Limits: 40 pages, depth 2, 6 per host, 40 files, 2 rounds. New names found during the search feed later rounds.</pre>
+<table>
+<tr><th>Question</th><th>What it changes</th></tr>
+<tr><td>Use a different agent provider?</td><td>Opens the provider picker (<a href="#ref-agents">rule-based or a model CLI</a>). With a model provider the profile and the page texts are sent to that tool.</td></tr>
+<tr><td>Change the search engines?</td><td>Opens the engine picker: numbers in the order to ask them. Defaults to yes when no engine is usable.</td></tr>
+<tr><td>Add your own queries</td><td>Anything you type is added with basis <i>user</i>. Use the language's own script if you know it.</td></tr>
+</table>
+<p>While it runs, the progress board shows the stage (searching, reading pages, downloading), pages read out of the limit, and every download with speed. When it finishes: hits, pages fetched, relevant pages, files found, names <b>learned</b> during the session (they sharpened the second round and were proposed for review, never written to the profile), the number of facts proposed, and any engine errors such as a DuckDuckGo bot-check page.</p>
+<div class="callout"><span class="dot"></span><p>Learning is guarded. A name is only learned from a page the tool confirmed is about this language, never a name that belongs to another ISO language, and there are caps per session. Everything learned still goes through the review queue.</p></div>
+
+<h3 id="tui-offline">Offline Collection</h3>
+<pre class="term"><span class="h">Offline Collection · Tangsa [nst]</span>
+
+Scanning for 40 term(s) from the language profile, e.g.: Tangsa, nst, Tase Naga, Pangwa Naga, Naga, Tase, Cham Chang, Chang, Jugli
+
+Folder(s) to scan (separate several with ';'; default: your home folder):
+<span class="p">&gt;</span> <span class="u">~/Documents/fieldwork; /media/usb</span>
+Storage mode — Copy / Move / Reference [default: copy]:
+<span class="p">&gt;</span>
+Also look inside text and document files (slower, finds files whose names say nothing)? [Y/n]
+<span class="p">&gt;</span>
+
+Scanning /home/you/Documents/fieldwork, /media/usb …
+  <span class="ok">stored</span>     70 Tangsa_grammar_sketch.txt [grammar]
+  <span class="ok">stored</span>     70 Mossang_wordlist.txt [wordlist]
+  <span class="warn">review</span>     55 Rangpan_song.wav [audio]
+
+Files seen: 812   matches: 3   folders skipped: 4</pre>
+<p>The search terms come from the profile: name, code, alternative names, exonyms, varieties, places. That is why a fuller profile finds more. A file matches when a term appears in its name, or, with the content option, inside a text-bearing file (plain text, documents, PDFs, annotation formats). Folders such as <code>.git</code>, <code>node_modules</code> and virtual environments are skipped (list in <code>[scan] exclude_dirs</code>).</p>
+<p>Storage modes: <b>copy</b> stores a read-only copy and leaves your file alone; <b>move</b> relocates the file into the collection; <b>reference</b> only records where the file is and indexes it there. Every match records how it was detected (file name or content) and with what confidence.</p>
+
+<h3 id="tui-import">Import Files / Folder</h3>
+<pre class="term"><span class="h">Import Files / Folder · Tangsa [nst]</span>
+
+File or folder to import:
+<span class="p">&gt;</span> <span class="u">~/Downloads/tangsa-dictionary.pdf</span>
+Storage mode — Copy / Move / Reference [default: copy]:
+<span class="p">&gt;</span>
+
+Importing /home/you/Downloads/tangsa-dictionary.pdf (copy) …
+  <span class="ok">stored</span>    100 tangsa-dictionary.pdf [dictionary]</pre>
+<p>Imported files are asserted by you, so they score 100 and are confirmed. A file identical to one already stored is linked as a duplicate: one stored copy, two source records. Archives (zip, tar) are listed; their members become resources of their own when <code>[archives] ingest_members = true</code>.</p>
+
+<h3 id="tui-collection">View Existing Collection</h3>
+<pre class="term"><span class="h">Existing Collection · Tangsa [nst]</span>
+
+  4 resource(s)
+
+#  name                       format  category  resource type  relevance      sources
+-  -------------------------  ------  --------  -------------  -------------  -------
+1  Tangsa_grammar_sketch.txt  text    text      grammar         70 confirmed  1
+2  Mossang_wordlist.txt       text    text      wordlist        70 confirmed  1
+3  recipes.txt                text    text      unknown        100 confirmed  1
+4  Rangpan_song.wav           audio   audio     audio           55 review     1
+
+Resource number for details (blank to go back):
+<span class="p">&gt;</span> <span class="u">1</span>
+
+<span class="h">#1 Tangsa_grammar_sketch.txt</span>
+  stored at  ~/.aimixe/languages/nst/resources/text/453e998e4a2f-Tangsa_grammar_sketch.txt
+  sha256     453e998e4a2f5f92e3d55cda3587e02d01cdc71ab950da87a6390ecb3518332a
+  format     text · text · 13 bytes · copy
+  types      grammar (0.70, content), grammar (0.70, rule)
+Sources:
+  session_id=COL-20260911-001; method=offline; original_path=~/Documents/fieldwork/Tangsa_grammar_sketch.txt; detection_method=filename; confidence=0.9; import_method=copy
+Extracted:
+  text      ~/.aimixe/languages/nst/extracted/1-453e998e4a2f/text.txt
+  metadata  ~/.aimixe/languages/nst/extracted/1-453e998e4a2f/metadata.json</pre>
+<p>A resource's detail shows where the read-only original is stored, its hash, format, size and storage mode, the resource types with their confidence and how they were decided (rule, content, catalogue), every source record (a file found twice has two), the derived files under <code>extracted/</code>, and near-duplicates found by fuzzy text comparison.</p>
+
+<h3 id="tui-review">Review queue</h3>
+<p>From the home screen, <code>r</code> opens the picker; from the command line, <code>aimixe collect review</code>.</p>
+<pre class="term"><span class="h">Review queue</span>
+
+   1  Yongnan Zhuang  zyn   28 waiting   11 resource(s) · 17 language fact(s)
+   2  Guibei Zhuang   zgb    2 waiting   2 resource(s)
+   3  Bangubangu      bnx    2 waiting   2 language fact(s)
+   a  all languages  <span class="g">(32)</span>
+   b  back
+
+Which language?
+<span class="p">&gt;</span> <span class="u">1</span></pre>
+<p>Then one item at a time. Two kinds exist.</p>
+<pre class="term">  <span class="g">item 1 of 28 · Yongnan Zhuang [zyn]</span>
+<span class="h">Possible new language information detected</span>
+
+Field: varieties
+Value: Yongnan Zhuang of Chongzuo, Yongnan Zhuang of Shangsi, Yongnan Zhuang of Qinzhou, Yongnan Zhuang of Long'an, Yongnan Zhuang proper
+Quote: “There are five varieties: Yongnan Zhuang of Chongzuo, of Shangsi, of Qinzhou, of Long'an, and Yongnan Zhuang proper.”
+Confidence: 85%
+
+Source:
+https://en.wikipedia.org/wiki/Yongnan_languages
+
+[<span class="ok">A</span>] Accept
+[<span class="bad">R</span>] Reject
+[V] View source
+[S] Skip
+[B] Back
+<span class="p">&gt;</span> </pre>
+<pre class="term">  <span class="g">item 2 of 28 · Yongnan Zhuang [zyn]</span>
+<span class="h">Uncertain resource</span>
+
+Resource: The prospects for the long-term survival of non-Han minority languages
+Relevance:  <span class="warn">62 possible</span>
+  - shared name “Zhuang”, weak
+  - region match China
+Confidence: 62%
+
+Source:
+https://zenodo.org/records/1234567</pre>
+<table>
+<tr><th>Key</th><th>Does</th></tr>
+<tr><td><kbd>A</kbd> Accept</td><td>A language fact is written into the profile (added to the existing values; nothing is replaced). A resource becomes confirmed.</td></tr>
+<tr><td><kbd>R</kbd> Reject</td><td>Recorded as rejected. The resource stays stored but is no longer counted for the language; the fact stays in the provenance as rejected so it is not proposed again.</td></tr>
+<tr><td><kbd>V</kbd> View source</td><td>Prints the stored text of the page or file the item came from, so you can judge without opening a browser.</td></tr>
+<tr><td><kbd>S</kbd> Skip</td><td>Leaves it for later and shows the next item.</td></tr>
+<tr><td><kbd>B</kbd> Back</td><td>Returns to the menu; the remaining items stay in the queue.</td></tr>
+</table>
+
+<h3 id="tui-history">History</h3>
+<p><code>h</code> on the home screen shows every session in a table (see <a href="#cli-history">the command</a> for the columns). Type a session id to print its summary and full event log; blank goes back.</p>
+
+<h3 id="tui-settings">Settings</h3>
+<pre class="term"><span class="h">Settings</span>
+
+ 1. Agent provider
+    <span class="g">→ now: rule_based</span>
+ 2. Search engines
+    <span class="g">→ now: duckduckgo, bing, wikipedia</span>
+ 3. Catalogues
+    <span class="g">→ 8 enabled: glottolog, zenodo, internet_archive, kaipuleohone, olac, elar, paradisec, pangloss</span>
+ 4. Back</pre>
+<h4>Agent provider</h4>
+<pre class="term"><span class="h">Agent provider</span>
+
+ 1. ● rule_based   no model; queries and facts by rules, never leaves the machine
+ 2.   claude       Anthropic's Claude Code CLI
+ 3.   codex        OpenAI Codex CLI
+ 4.   gemini       Google Gemini CLI   (not installed on this machine)
+ 5.   agy          Antigravity CLI
+ 6.   qwen         Qwen Code CLI   (not installed on this machine)
+ 7.   ollama       Ollama, local model (prompt on stdin); set the model name to what you have pulled
+ 8.   llm          Simon Willison's llm CLI, any configured model   (not installed on this machine)
+ 9.   Keep current</pre>
+<p>The dot marks the current one. Choosing a tool that is not installed is allowed; the rule-based agent is used until it appears on your PATH. The choice is saved as <code>provider = "…"</code> under <code>[agent]</code> in <code>config.toml</code>.</p>
+<h4>Search engines</h4>
+<pre class="term"><span class="h">Search engines</span>
+
+<span class="ok">●</span> 1. duckduckgo   html  DuckDuckGo HTML endpoint; no key; sometimes answers with a bot check
+      <span class="g">→ region: global (blocked in some countries)</span>
+<span class="ok">●</span> 2. bing         rss   Bing RSS feed; no key; few results per query
+      <span class="g">→ region: global (works in China)</span>
+<span class="ok">●</span> 3. wikipedia    json  Wikipedia article search; reliable; set lang to zh, ru, hi … for other editions
+  4. baidu        html  Baidu result page (China). Best effort …  <span class="g">(unverified)</span>
+  5. brave        json  Brave Search API; free tier with a key …  <span class="warn">⚠ needs an API key: put brave = "…" under [agent.search_keys] in config.toml or set AIMIXE_SEARCH_KEY_BRAVE</span>
+  …
+  Enter the numbers to use, in the order to ask them (e.g. 3 1 2). Blank keeps the current choice.
+Engines:
+<span class="p">&gt;</span> <span class="u">2 4 3</span>
+Saved: search_backends = ['bing', 'baidu', 'wikipedia'] in ~/.aimixe/config/config.toml</pre>
+<h4>Catalogues</h4>
+<p>The provider table, then <i>Add a catalogue</i> (the guided questions from <a href="#cli-catalogue">catalogue add</a>) or <i>Remove or disable a catalogue</i> by name.</p>
+
+<h3 id="tui-web">w and g: the browser from the terminal</h3>
+<p><code>w</code> on the home screen starts the web interface in a background thread, on port 8765 or the next free one, and opens your browser. The terminal keeps working; pressing <code>w</code> again only reopens the browser. The line on the home screen shows the address while it runs, and it stops when you leave with <code>q</code>.</p>
+<pre class="term">Choose a number or a letter:
+<span class="p">&gt;</span> <span class="u">w</span>
+Web interface started at <span class="ok">http://127.0.0.1:8765/</span> (it stops when you leave with q).
+Opened http://127.0.0.1:8765/</pre>
+<p>Inside a language, <i>6. Web Interface</i> in the Data Collection menu opens that language's profile page directly. <code>g</code> on the home screen and <i>7. User Guide</i> open this guide. If no browser can be opened (a server over SSH, for instance), the address or file path is printed so you can open it yourself, or forward the port: <code>ssh -L 8765:127.0.0.1:8765 host</code>.</p>
+
+<!-- ============================================================== PART 3 -->
+<h2 id="web">Part 3 · Web interface: starting it</h2>
+<pre><code>aimixe collect ui                 # opens http://127.0.0.1:8765/ in your browser; Ctrl-C stops it
+aimixe collect ui --port 9000     # another port
+aimixe collect ui --no-browser    # only print the address</code></pre>
+<p>Or press <code>w</code> in the terminal interface, or double-click <code>aimixe-ui.cmd</code> in the Windows bundle. The page talks to a small local server; nothing leaves your machine except the searches you start. There is no login, which is why it listens on 127.0.0.1 only.</p>
+<p>The layout is the same on every screen: a <b>sidebar</b> with the language switcher, the Collect actions, the Language pages with live counts, the review badge, History, Settings, the User guide link and the agent and engine status; a <b>search box</b> at the top to find or jump to a language; and the page itself.</p>
+
+<h3 id="web-home">Home</h3>
+<figure><img src="images/web-home.jpg" alt="Home screen of the web interface"><figcaption>One row per language: family and region, when it was last collected and how, resources stored, profile fields known, and what is waiting. The button on the right is the suggested next step: Review, Start collecting or Open.</figcaption></figure>
+<ul>
+  <li><b>New language</b> opens the search page. The keys shown next to it work everywhere: <kbd>G</kbd> then <kbd>N</kbd> new, <kbd>G</kbd> <kbd>R</kbd> review, <kbd>G</kbd> <kbd>H</kbd> history, <kbd>G</kbd> <kbd>S</kbd> settings.</li>
+  <li>Click a language name or <b>Open</b> to work on it: the sidebar switches to that language and the profile opens.</li>
+  <li><b>Review</b> opens that language's queue. <b>Start collecting</b> goes straight to the catalogue search for a language with nothing stored yet.</li>
+  <li>The three cards at the bottom: the whole review queue, the collection history with session count and storage size, and settings with the current agent and engines.</li>
+</ul>
+
+<h3 id="web-find">New language</h3>
+<figure><img src="images/web-find.jpg" alt="New language page"><figcaption>Type a name or an ISO 639-3 code, as in the terminal. The top search box does the same from any page.</figcaption></figure>
+<p>An exact match shows "Language detected" with the family, region, alternative names and what matched, and a <b>Continue with this language</b> button. Several matches are listed to choose from. No match offers to create a profile with a local identifier: type the name and, if known, the code.</p>
+
+<h3 id="web-profile">Profile</h3>
+<figure><img src="images/web-profile.jpg" alt="Language profile page"><figcaption>Left: the sections with how many fields are known in each, and Propose values. Right: every field with its value and where it came from.</figcaption></figure>
+<ul>
+  <li>Each field shows its label, its internal key (<code>identity.family</code>), the current value, and one <b>provenance line</b> per recorded value: a green dot for the bundled tables and catalogues, a black dot for your own answer, an amber dot for a proposal awaiting you. Each line names the source, the confidence and, when there is one, a link to the page.</li>
+  <li>A proposal shows <b>accept</b> and <b>reject</b> inline, so you can settle it without leaving the page. Accepting adds the value; nothing is replaced.</li>
+  <li><b>Edit</b> (or <b>Add</b> when the field is empty) opens an editor under the row, with the same input kinds as the terminal: text, a list, a state with detail, a speaker number or range, places one per line, publication entries. Save records it as your answer.</li>
+  <li><b>Propose values</b> runs the same Glottolog and agent read as the terminal, with a live log; when it finds something, the review queue opens.</li>
+  <li>The section list on the left scrolls to a section. The counts in the sidebar (<i>Profile 9/26</i>) update as you record values.</li>
+</ul>
+
+<h3 id="web-catalogue">Catalogue search</h3>
+<figure><img src="images/web-catalogue.jpg" alt="Catalogue search page"><figcaption>Tick the providers to ask and press Search. The search runs as a background job with a live log.</figcaption></figure>
+<p>Results appear in a table: a selection mark, the relevance score with a bar, the title (a link to the record), the reasons for the score, the catalogue, the licence and the number of files. Pills above the table filter by band: All, Confirmed (70 and above), For review (30 to 69), Below 30. Results under 30 are folded away behind "Show all".</p>
+<p>The dark bar at the bottom holds the <b>minimum relevance</b>. The marks in the first column show which results will be downloaded at that threshold and the bar says how many are confirmed and how many go to review. <b>Download</b> starts the job: every file appears in the log with size, speed and time left, then the session summary and the outcome of each item. Lookup providers appear as chips to open in a new tab.</p>
+
+<h3 id="web-agent">Agent search</h3>
+<figure><img src="images/web-agent.jpg" alt="Agent search page"><figcaption>Provider, engines, your own queries and the planned queries with their basis and rationale. Untick a query to leave it out.</figcaption></figure>
+<p>The three panels: the <b>agent provider</b> (changing it here saves to config.toml, as in the terminal), the <b>search engines</b> currently usable with a link to Settings, and a box for <b>your own queries</b> separated by semicolons. The limits from configuration are shown under the Run button. While running, the log shows every page and download; at the end, the counts, the names learned, the facts proposed for review, any engine errors, and the outcome of every resource.</p>
+
+<h3 id="web-offline">Offline collection and Import</h3>
+<figure><img src="images/web-offline.jpg" alt="Offline collection page"><figcaption>Folders one per line, storage mode, whether to look inside files, and the search terms the profile provides.</figcaption></figure>
+<figure><img src="images/web-import.jpg" alt="Import page"><figcaption>A path on this machine and the storage mode. Enter in the box starts the import.</figcaption></figure>
+<p>Both run as jobs with a progress line (files seen and matches for a scan, files done for an import), then the session summary and the outcome table. Clicking a stored outcome opens the resource in the Collection page.</p>
+
+<h3 id="web-collection">Collection</h3>
+<figure><img src="images/web-collection.jpg" alt="Existing collection page"><figcaption>Every resource of the language with relevance, status, size, format, types and how many source records point at it.</figcaption></figure>
+<p>Clicking a row opens the resource detail below the table: stored path, SHA-256, format, types with confidence, relevance per language with the reasons, every provenance record, extracted files, near-duplicates and the metadata found in the file.</p>
+
+<h3 id="web-review">Review queue</h3>
+<figure><img src="images/web-review.jpg" alt="Review queue page"><figcaption>Pills to choose a language or all of them, the queue on the left, the selected item on the right.</figcaption></figure>
+<p>The right pane shows, for a language fact, the proposed values as chips, the supporting quote, the source link, what is already recorded for that field and the session that found it. For an uncertain resource it shows the score, the reasons, the source and a link to the resource. The buttons and keys are the same as the terminal:</p>
+<div class="keys">
+  <kbd>A</kbd><span>Accept</span>
+  <kbd>R</kbd><span>Reject</span>
+  <kbd>V</kbd><span>View source: the stored text of the page or file appears under the buttons</span>
+  <kbd>S</kbd><span>Skip</span>
+  <kbd>B</kbd><span>Back to the profile or home</span>
+  <kbd>J</kbd> / <kbd>K</kbd><span>Next and previous item (also the arrow keys)</span>
+</div>
+<p>After a decision the next item is selected automatically. The sidebar badge and the home counts update.</p>
+
+<h3 id="web-history">History</h3>
+<figure><img src="images/web-history.jpg" alt="Collection history page"><figcaption>Every session with language, mode, status, start time and the counters. With a language selected, only its sessions; the button switches to all.</figcaption></figure>
+<p>Clicking a session shows its summary and the complete event log, the same lines as <code>aimixe collect history &lt;id&gt;</code>.</p>
+
+<h3 id="web-settings">Settings and Catalogues</h3>
+<figure><img src="images/web-settings.jpg" alt="Settings page"><figcaption>Agent provider, the search engine table with test and remove, the add-engine form, and the catalogues summary.</figcaption></figure>
+<ul>
+  <li><b>Agent provider</b>: the same list as the terminal; the choice is saved immediately.</li>
+  <li><b>Search engines</b>: tick the engines to use, in the order shown, and Save selection. <i>test</i> runs one query and prints the hits. Engines that need a key are tagged; the key goes in config.toml or the environment. <i>Add an engine</i> unfolds a form with the same fields as <code>search add</code>.</li>
+  <li><b>Catalogues</b> summarises the providers; <i>Manage and add catalogues</i> opens the full page.</li>
+</ul>
+<figure><img src="images/web-catalogues.jpg" alt="Catalogues page"><figcaption>Every provider with kind, description, licence note, source and how it searches, plus a form to add your own.</figcaption></figure>
+
+<h3 id="web-keys">Shortcuts and addresses</h3>
+<div class="keys">
+  <kbd>/</kbd><span>Focus the search box; type a language and press Enter</span>
+  <kbd>G</kbd> <kbd>N</kbd><span>New language</span>
+  <kbd>G</kbd> <kbd>R</kbd><span>Review queue, all languages</span>
+  <kbd>G</kbd> <kbd>H</kbd><span>History</span>
+  <kbd>G</kbd> <kbd>S</kbd><span>Settings</span>
+  <kbd>G</kbd> <kbd>L</kbd><span>Home (the language list)</span>
+</div>
+<p>Every page has an address you can bookmark or open from the terminal: <code>#home</code>, <code>#find</code>, <code>#review</code>, <code>#history</code>, <code>#settings</code>, <code>#catalogues</code>, and with a language <code>#profile:zyn</code>, <code>#catalogue:zyn</code>, <code>#agent:zyn</code>, <code>#offline:zyn</code>, <code>#import:zyn</code>, <code>#collection:zyn</code>, <code>#review:zyn</code>. Example: <code>http://127.0.0.1:8765/#review:zyn</code>.</p>
+
+<!-- ============================================================== PART 4 -->
+<h2 id="ref-relevance">Part 4 · Reference: relevance scoring</h2>
+<p>Every candidate, wherever it comes from, gets a score from 0 to 100 built from signals in its title, description, metadata and, once downloaded, its text. Each signal counts once and carries a reason you see next to the result.</p>
+<table>
+<tr><th>Signal</th><th>Weight</th><th>Notes</th></tr>
+<tr><td>Asserted by you (import)</td><td>100</td><td>Imported files are yours; they are confirmed.</td></tr>
+<tr><td>ISO 639-3 code</td><td>70</td><td>The code as a word or in metadata.</td></tr>
+<tr><td>Exact language name</td><td>70</td><td>Reduced to half when the name is shared by many languages ("Zhuang", "Naga") or is an ordinary word ("Even", "Bench") without language context.</td></tr>
+<tr><td>Alternative name</td><td>55</td><td></td></tr>
+<tr><td>Metadata says this language</td><td>50</td><td>A catalogue record whose language field is this code.</td></tr>
+<tr><td>Exonym · variety</td><td>50</td><td>Names from the profile.</td></tr>
+<tr><td>Known publication · translation</td><td>45 · 40</td><td>Titles recorded in the profile.</td></tr>
+<tr><td>Document contents</td><td>30</td><td>The extracted text mentions the language.</td></tr>
+<tr><td>Community terms</td><td>25</td><td></td></tr>
+<tr><td>Catalogue classification</td><td>20</td><td>Halved: a classification is a hint, not proof.</td></tr>
+<tr><td>Place · parent grouping</td><td>15</td><td></td></tr>
+<tr><td>Family · script</td><td>8</td><td></td></tr>
+<tr><td>Country or region</td><td>5</td><td>On purpose tiny: a country is not a language.</td></tr>
+</table>
+<p>A name that appears only as an author's surname ("Zhuang, Owada &amp; Wang 2015") is not counted. Catalogue entries of purely non-linguistic types are scored down.</p>
+<table>
+<tr><th>Band</th><th>Score</th><th>What happens</th></tr>
+<tr><td><span class="tag green">Very high · High</span></td><td>70 to 100</td><td>Confirmed: stored and counted for the language.</td></tr>
+<tr><td><span class="tag amber">Possible</span></td><td>30 to 69</td><td>Stored, but waits in the review queue until you accept or reject it.</td></tr>
+<tr><td><span class="tag">Weak · Unrelated</span></td><td>0 to 29</td><td>Recorded in the session, not downloaded (online) or rejected (offline).</td></tr>
+</table>
+<p>The two thresholds are <code>confirmed_at</code> and <code>review_at</code> under <code>[relevance]</code> in config.toml. The online minimum for downloading is <code>min_download_score</code> under <code>[online]</code>, and you can change it per search.</p>
+
+<h2 id="ref-profile">Profile fields</h2>
+<p>Twenty-six fields in five sections. Every value carries its provenance: source type (bundled tables, user, catalogue, agent), source, confidence, year, note, and whether it is accepted, proposed or rejected. Sources that disagree are kept side by side and the field is flagged "sources disagree" until you settle it.</p>
+<table>
+<tr><th>Section · field</th><th>How it is asked</th></tr>
+<tr><td colspan="2"><b>Names and Classification</b> (identity)</td></tr>
+<tr><td>Family</td><td>Free text, e.g. Sino-Tibetan.</td></tr>
+<tr><td>Alternative names</td><td>Comma-separated list.</td></tr>
+<tr><td>Exonyms</td><td>Names used by outsiders, comma-separated.</td></tr>
+<tr><td>Parent language/group</td><td>A name plus a type: parent language, dialect group, macrolanguage, subgroup, grouping.</td></tr>
+<tr><td>Scripts</td><td>Script names or ISO 15924 codes (Latin, Myanmar, Deva); resolved against the bundled script table.</td></tr>
+<tr><td>Notes</td><td>Free text.</td></tr>
+<tr><td colspan="2"><b>Orthography and Location</b> (orthography_location)</td></tr>
+<tr><td>Orthography status</td><td>Pick a suggested value or describe it.</td></tr>
+<tr><td>Literacy</td><td>Free text.</td></tr>
+<tr><td>Varieties</td><td>Dialects and varieties, comma-separated. Glottolog's dialect names are proposed when you ask for values.</td></tr>
+<tr><td>Region</td><td>Free text.</td></tr>
+<tr><td>Places</td><td>One per line: name, type (village, district…), region, country.</td></tr>
+<tr><td>Other languages</td><td>Tagged list: <code>Hindi (lingua franca), Assamese: regional</code>.</td></tr>
+<tr><td colspan="2"><b>Existing Resources</b> (resources)</td></tr>
+<tr><td>Resource summary</td><td>Free text.</td></tr>
+<tr><td>Written materials · Recordings · Linguistic studies · Digital resources</td><td>A state (yes, no, unknown, limited, reported, historical) plus an optional detail.</td></tr>
+<tr><td>Speaker estimate</td><td>A number, an approximation (<code>~8500</code>) or a range (<code>8000-9000</code>).</td></tr>
+<tr><td colspan="2"><b>Speaker and Community Information</b> (community_status)</td></tr>
+<tr><td>Speaker estimate basis</td><td>Type (census, fieldwork…), year and source.</td></tr>
+<tr><td>Transmission</td><td>Whether children learn it: a suggested value or your own words.</td></tr>
+<tr><td>Age spread</td><td>Yes, no or unknown for children, young adults, adults, elderly, plus a note.</td></tr>
+<tr><td>Domains of use</td><td>List.</td></tr>
+<tr><td>Displacement</td><td>A suggested value or your own words.</td></tr>
+<tr><td>Community information</td><td>Free text plus lists of organisations and contacts.</td></tr>
+<tr><td colspan="2"><b>Translation and Publication</b> (translation_publication)</td></tr>
+<tr><td>Translations · Publications</td><td><code>no</code>, <code>unknown</code>, or entries one per line: <code>kind | title | date | organisation | url</code>.</td></tr>
+</table>
+
+<h2 id="ref-storage">Where things are stored</h2>
+<pre><code>~/.aimixe/
+├── config/config.toml            every setting; created with defaults on first run
+├── catalogues/&lt;name&gt;.toml        catalogue providers you added
+├── search-engines/&lt;name&gt;.toml    search engines you added
+├── database/aimixe.db            SQLite: languages, profiles, resources, sources, sessions, review queue
+├── languages/&lt;id&gt;/
+│   ├── language.json             the profile with per-value provenance
+│   ├── resources/&lt;category&gt;/     originals, write-once, read-only (copy and move modes)
+│   ├── extracted/&lt;n&gt;-&lt;hash&gt;/     text.txt, metadata.json, pages.json derived from each resource
+│   ├── metadata/  manifests/     catalogue records, lookup-link manifests
+├── cache/  temp/  logs/          logs/collect.jsonl is an append-only event log</code></pre>
+<p>Stored originals are named <code>&lt;hash prefix&gt;-&lt;original name&gt;</code> and made read-only. A byte-identical file is stored once, however many times it is found; each finding adds a source record. The database is the authoritative index; <code>language.json</code> is written from it so you can read a profile without the tool. Back up the whole folder to keep everything.</p>
+
+<h2 id="ref-config">config.toml</h2>
+<p>Created at <code>~/.aimixe/config/config.toml</code> on first run with every default shown. Edit it with any text editor; the tool reads it at start.</p>
+<pre><code>[general]
+uncertain_below = 0.6           # profile values with lower confidence are asked again
+storage_mode = "copy"           # copy | move | reference
+
+[relevance]
+confirmed_at = 70
+review_at = 30
+
+[agent]
+provider = "rule_based"         # rule_based | claude | codex | gemini | agy | qwen | ollama | llm | custom
+search_backends = ["duckduckgo", "bing", "wikipedia"]
+max_queries = 16
+hits_per_query = 8
+max_pages = 40
+max_depth = 2
+per_host = 6
+max_rounds = 2
+max_files = 40
+# [agent.cli]
+# command = "my_tool --quiet {prompt}"      # your own model command; {prompt} or stdin
+# [agent.search_keys]
+# brave = "…"                                # keys for engines that need one
+
+[online]
+max_download_mb = 500
+max_results_per_provider = 25
+max_files_per_record = 25
+min_download_score = 50
+parallel_downloads = 3
+timeout = 30
+disabled_catalogues = []
+
+[extraction]
+enabled = true
+max_text_mb = 50
+
+[archives]
+ingest_members = false          # true: every member of a zip/tar becomes a resource
+max_members = 200
+
+[dedup]
+fuzzy = true                    # near-duplicate text detection
+threshold = 0.85
+
+[scan]
+exclude_dirs = [".git", "node_modules", "__pycache__", ".cache", ".venv", "venv"]
+max_file_size_mb = 4096
+content = true                  # look inside files during offline scans
+content_max_mb = 20</code></pre>
+
+<h2 id="ref-engines">Search engines, China, keys</h2>
+<p>Engines are data, not code. The built-in ones live in the package; yours go in <code>~/.aimixe/search-engines/</code>. Three kinds: <b>json</b> (an API; dotted paths pick url, title and snippet from the answer), <b>rss</b> (a feed of results) and <b>html</b> (a results page; a regular expression picks out the links, best effort).</p>
+<table>
+<tr><th>Engine</th><th>Key</th><th>Where it works</th></tr>
+<tr><td>duckduckgo</td><td>no</td><td>Global; blocked in some countries; sometimes answers with a bot-check page, which the run reports and skips.</td></tr>
+<tr><td>bing</td><td>no</td><td>Global, including China. Few results per query.</td></tr>
+<tr><td>wikipedia</td><td>no</td><td>Global except where blocked. Set <code>lang</code> to zh, ru, hi… for another edition.</td></tr>
+<tr><td>baidu · sogou</td><td>no</td><td>China. Result-page scrapers, unverified from outside China; a verification page may appear.</td></tr>
+<tr><td>searxng</td><td>no</td><td>Wherever your instance is. Run your own (<code>docker run searxng/searxng</code>) and point <code>url</code> at it. The usual answer where the big engines are blocked.</td></tr>
+<tr><td>brave · google_cse · serpapi · yandex_xml</td><td>yes</td><td>Keyed APIs. SerpAPI can return Baidu results with <code>engine=baidu</code> in the URL.</td></tr>
+</table>
+<p><b>In China</b> the practical choice is <code>aimixe collect search use bing baidu</code>, or a SearXNG instance you can reach, or SerpAPI with a key. Test before a long run: <code>aimixe collect search test baidu "壮语"</code>.</p>
+<p>Keys: in config.toml under <code>[agent.search_keys]</code> (<code>brave = "…"</code>, <code>google_cse = "…"</code> plus <code>google_cse_cx = "…"</code>, <code>serpapi = "…"</code>, <code>yandex_xml = "…"</code>) or as environment variables <code>AIMIXE_SEARCH_KEY_BRAVE</code> and so on. An engine whose key is missing is skipped at run time and says why in the engine list.</p>
+<p>A minimal engine file:</p>
+<pre><code># ~/.aimixe/search-engines/my_searxng.toml
+name = "my_searxng"
+kind = "json"
+url = "https://searx.example.org/search?q={q}&amp;format=json"
+items = "results"
+what = "our SearXNG"
+[fields]
+url = "url"
+title = "title"
+snippet = "content"</code></pre>
+
+<h2 id="ref-agents">Agent providers</h2>
+<p>The agent has two parts: the search and page-reading machinery (always the same, always local) and a <b>provider</b> that classifies pages, refines queries and extracts facts.</p>
+<table>
+<tr><th>Provider</th><th>What it is</th><th>Data leaves the machine?</th></tr>
+<tr><td>rule_based</td><td>The default. Rules only, no model. Queries from the profile fields, facts by pattern.</td><td>No (only the web searches themselves).</td></tr>
+<tr><td>claude · codex · gemini · agy · qwen · llm</td><td>Command-line model tools already on your PATH. Their answers are combined with the rule-based baseline; if the tool fails, the run carries on rule-based.</td><td>Yes: the language profile and the text of visited pages are sent to that tool.</td></tr>
+<tr><td>ollama</td><td>A local model through Ollama; set the model name to one you have pulled.</td><td>No.</td></tr>
+<tr><td>custom</td><td>Any command under <code>[agent.cli]</code>; <code>{prompt}</code> in the command or the prompt on stdin.</td><td>Depends on the command.</td></tr>
+</table>
+<p>Whatever the provider, facts it proposes go to the review queue with the quote that supports them, and names it learns during a run are used for later queries but never written to the profile by themselves.</p>
+
+<h2 id="ref-catalogues">Catalogue providers</h2>
+<table>
+<tr><th>Provider</th><th>Kind</th><th>What you get</th></tr>
+<tr><td>glottolog</td><td>record</td><td>The languoid record: classification, dialect names, glottocode. Facts are proposed to the review queue.</td></tr>
+<tr><td>zenodo</td><td>record</td><td>Papers, datasets and recordings with files to download and a licence.</td></tr>
+<tr><td>internet_archive</td><td>record</td><td>Books, recordings, films and datasets.</td></tr>
+<tr><td>kaipuleohone</td><td>record</td><td>The University of Hawaiʻi language archive (a DSpace repository). Another DSpace repository can be added with the same class and a different base URL.</td></tr>
+<tr><td>olac · elar · paradisec · pangloss</td><td>lookup</td><td>A URL to open in a browser. These sites have no machine-readable search the tool may use, so nothing is fetched; the links are saved in a manifest with the session.</td></tr>
+</table>
+<p>Your own providers are TOML files of kind <code>lookup</code>, <code>api_json</code> or <code>html_links</code>; <code>aimixe collect catalogue add</code> asks the questions. Every download records the catalogue, the record URL, the licence and the date in the resource's provenance.</p>
+
+<h2 id="ref-trouble">Troubleshooting</h2>
+<table>
+<tr><th>What you see</th><th>What it means · what to do</th></tr>
+<tr><td>"DuckDuckGo answered with a bot check"</td><td>The engine refused automated queries for a while. The other engines carry on. Use <code>search use bing wikipedia</code> or add a SearXNG instance.</td></tr>
+<tr><td>"No usable search engine"</td><td>Every enabled engine needs a key you have not set, or none is enabled. <code>search list</code> shows why; <code>search use …</code> fixes it.</td></tr>
+<tr><td>"claude is not available; the rule-based agent is used"</td><td>The chosen model tool is not on PATH. Install it, or pick rule_based in Settings. Runs still work.</td></tr>
+<tr><td>Catalogue search takes a minute</td><td>Zenodo and Internet Archive answer slowly for broad names; the time per provider is printed. Untick providers you do not need.</td></tr>
+<tr><td>A download shows 0 B/s for a long time</td><td>The server is slow or stalled; the per-file timeout (<code>[online] timeout</code>) ends it and the item is recorded as failed. Nothing else is affected.</td></tr>
+<tr><td>Many "review" outcomes, few "stored"</td><td>The profile has few names, so scores stay in the middle band. Add alternative names and varieties, or accept the proposals from Propose values, and search again.</td></tr>
+<tr><td>Nothing found offline although the files are there</td><td>The file names do not contain any profile term. Turn on "look inside files", or add the names people actually use to the profile.</td></tr>
+<tr><td>"Cannot start the interface on 127.0.0.1:8765"</td><td>The port is in use (another <code>ui</code> running?). Use <code>--port</code>. The terminal's <code>w</code> picks the next free port by itself.</td></tr>
+<tr><td>A stored file is read-only</td><td>By design: originals under <code>resources/</code> are write-once. Work on a copy.</td></tr>
+<tr><td>Scanned PDFs yield no text</td><td>The built-in extractor handles plainly encoded PDFs. Install <code>pdftotext</code> (poppler); it is used automatically and recorded in the provenance.</td></tr>
+<tr><td>Strange characters on Windows</td><td>Run in Windows Terminal or PowerShell; the launcher sets UTF-8. Older cmd windows may need <code>chcp 65001</code>.</td></tr>
+<tr><td>Wrong language accepted with <code>--yes</code></td><td><code>--yes</code> takes the best candidate. Give the ISO code instead of a name to be exact.</td></tr>
+</table>
+<p>Logs: <code>~/.aimixe/logs/collect.jsonl</code> holds one JSON line per event; <code>aimixe collect history &lt;id&gt;</code> shows a session's events in order. Both are the first thing to look at when a run did something unexpected.</p>
+
+<p class="lede" style="margin-top:72px">That is every screen, key and command. The tool never changes or deletes what it stores, so the worst outcome of trying something is an item in the review queue.</p>
+</main>
+</div>
+<a class="top" href="#">Top ↑</a>
+<script>
+(() => {
+  const links = Array.from(document.querySelectorAll('#toc a'));
+  const heads = links.map(a => document.getElementById(a.getAttribute('href').slice(1))).filter(Boolean);
+  const onScroll = () => {
+    let cur = heads[0];
+    for (const h of heads) { if (h.getBoundingClientRect().top <= 80) cur = h; }
+    links.forEach(a => a.classList.toggle('on', cur && a.getAttribute('href') === '#' + cur.id));
+  };
+  document.addEventListener('scroll', onScroll, { passive: true }); onScroll();
+  const filter = document.getElementById('filter');
+  filter.addEventListener('input', () => {
+    const q = filter.value.trim().toLowerCase();
+    document.querySelectorAll('#toc li').forEach(li => {
+      if (li.classList.contains('part')) { li.classList.toggle('hide', !!q); return; }
+      const a = li.querySelector('a'); const sec = document.getElementById(a.getAttribute('href').slice(1));
+      let text = a.textContent; let n = sec;
+      while (n && n.nextElementSibling && !/^H[12]$/.test(n.nextElementSibling.tagName)) { n = n.nextElementSibling; text += ' ' + n.textContent; }
+      li.classList.toggle('hide', !!q && !text.toLowerCase().includes(q));
+    });
+  });
+})();
+</script>
+</body>
+</html>

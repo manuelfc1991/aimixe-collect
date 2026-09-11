@@ -36,7 +36,7 @@ def _fake_input(text):
 class CliTests(unittest.TestCase):
     def test_interactive_language_prompt_and_menu(self):
         with TempHome() as t:
-            code, out = run_cli(["--home", str(t.home)], stdin="Tangsa\ny\nn\n6\n")
+            code, out = run_cli(["--home", str(t.home)], stdin="Tangsa\ny\nn\n8\n")
             self.assertEqual(code, 0)
             self.assertIn("Enter language name or ISO 639-3 code:", out)
             self.assertIn("Language detected", out)
@@ -45,7 +45,7 @@ class CliTests(unittest.TestCase):
             self.assertIn("Continue with this language? [Y/n]", out)
             self.assertIn("Complete missing profile information? [Y/n]", out)
             for item in ("1. Online Collection", "2. Offline Collection", "3. Import Files / Folder",
-                         "4. View Existing Collection", "5. Language Profile", "6. Exit"):
+                         "4. View Existing Collection", "5. Language Profile", "6. Web Interface", "7. User Guide", "8. Exit"):
                 self.assertIn(item, out)
 
     def test_online_submenu(self):
@@ -179,3 +179,15 @@ class WizardParsingTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class GuideTests(unittest.TestCase):
+    def test_guide_path_and_bundle(self):
+        from aimixe_collect.docs import guide_path
+        code, out = run_cli(["guide", "--path"])
+        self.assertEqual(code, 0)
+        self.assertIn("user-guide.html", out)
+        html = guide_path().read_text(encoding="utf-8")
+        for anchor in ("cli-collect", "tui-home", "web-review", "ref-config"):
+            self.assertIn(f'id="{anchor}"', html)
+        self.assertNotIn('src="images/', html, "screenshots must be inlined by tools/build_user_guide.py")

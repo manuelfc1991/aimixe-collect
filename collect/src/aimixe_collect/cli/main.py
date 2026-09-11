@@ -23,7 +23,7 @@ from . import interactive, render as r
 from .render import Abort
 from .review_ui import run_review
 
-SUBCOMMANDS = ("import", "history", "review", "resume", "catalogue", "search", "ui")
+SUBCOMMANDS = ("import", "history", "review", "resume", "catalogue", "search", "ui", "guide")
 
 EXIT_OK, EXIT_CHECK_FAILED, EXIT_NOT_EVALUABLE, EXIT_INVALID, EXIT_CONFIG, EXIT_INTERNAL = 0, 10, 20, 40, 50, 70
 
@@ -44,6 +44,7 @@ def build_parser() -> argparse.ArgumentParser:
   aimixe collect catalogue list       catalogue providers (add | remove)
   aimixe collect search list          web search engines for Agent Search (use | add | remove | test)
   aimixe collect ui                   the same, in your browser
+  aimixe collect guide                the user guide, in your browser
 in any menu: number or text to choose, b = back, q = quit, ? = help.""")
     from .. import __version__
     p.add_argument("--version", action="version", version=f"aimixe collect {__version__}")
@@ -103,6 +104,9 @@ def build_sub_parser() -> argparse.ArgumentParser:
     ui.add_argument("--host", default="127.0.0.1")
     ui.add_argument("--port", type=int, default=8765)
     ui.add_argument("--no-browser", action="store_true", help="do not open a browser tab")
+
+    guide = sub.add_parser("guide", help="open the user guide (HTML) in your browser", parents=[common])
+    guide.add_argument("--path", action="store_true", help="only print where the guide file is")
 
     cat = sub.add_parser("catalogue", help="manage catalogue providers", parents=[common])
     catsub = cat.add_subparsers(dest="cat_command", required=True)
@@ -194,6 +198,14 @@ def _run_sub(argv: list[str]) -> int:
     if getattr(ns, "no_color", False):
         r.set_color(False)
     home = Path(ns.home).expanduser() if getattr(ns, "home", None) else None
+    if ns.command == "guide":
+        from ..docs import guide_path, open_guide
+        if ns.path:
+            r.out(str(guide_path()))
+            return EXIT_OK
+        opened, url = open_guide()
+        r.out(("Opened the user guide in your browser: " if opened else "Could not open a browser; open this file yourself: ") + url)
+        return EXIT_OK
     if ns.command == "ui":
         from ..web.server import serve
         try:

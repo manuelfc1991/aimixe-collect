@@ -127,6 +127,9 @@ class ServerTests(unittest.TestCase):
                 html = urllib.request.urlopen(base + "/").read().decode()
                 self.assertIn("AImixE Data Collection", html)
                 self.assertIn('id="view-find"', html)
+                guide = urllib.request.urlopen(base + "/guide").read().decode()
+                self.assertIn("User Guide", guide)
+                self.assertIn('id="tui-review"', guide)
                 js = urllib.request.urlopen(base + "/app.js").read().decode()
                 self.assertIn("Language detected", js)
                 for item in ("1. Online Collection", "Catalogue Search", "Agent Search", "Offline Collection",

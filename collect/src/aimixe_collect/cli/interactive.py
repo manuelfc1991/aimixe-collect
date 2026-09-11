@@ -112,10 +112,47 @@ def home_screen(app: App) -> list:
     r.out(f"  {r.c('r', 'cyan', 'bold')}  review everything waiting"
           + (f"  {r.c(f'({pending} item(s))', 'yellow')}" if pending else f"  {r.c('(nothing waiting)', 'grey')}"))
     r.out(f"  {r.c('h', 'cyan', 'bold')}  collection history")
+    r.out(f"  {r.c('w', 'cyan', 'bold')}  web interface  " + (r.c(f"(running at {_web_url})", 'green') if _web_url
+                                                            else r.c("(opens in your browser; the terminal stays usable)", 'grey')))
+    r.out(f"  {r.c('g', 'cyan', 'bold')}  user guide  {r.c('(opens in your browser)', 'grey')}")
     r.out(f"  {r.c('s', 'cyan', 'bold')}  settings: agent, search engines, catalogues")
     r.out(f"  {r.c('q', 'cyan', 'bold')}  leave")
     r.out()
     return rows
+
+
+# ------------------------------------------------------------------ web interface and guide
+_web_url: str | None = None
+
+
+def open_web_interface(app: App, language_id: str | None = None) -> None:
+    """``w``: start the local web interface once (background thread) and open it in the browser."""
+    global _web_url
+    import webbrowser
+    if _web_url is None:
+        from ..web.server import start_background
+        try:
+            _, _web_url = start_background(app.paths.root)
+        except OSError as exc:
+            r.err(f"Cannot start the web interface: {exc}")
+            return
+        r.out(f"Web interface started at {r.c(_web_url, 'green')} (it stops when you leave with q).")
+    url = _web_url + (f"#profile:{language_id}" if language_id else "")
+    opened = False
+    try:
+        opened = webbrowser.open(url)
+    except Exception:
+        pass
+    r.out(("Opened " if opened else "Could not open a browser; open this address yourself: ") + url)
+    r.out()
+
+
+def open_user_guide(anchor: str | None = None) -> None:
+    """``g``: open the bundled HTML user guide in the browser."""
+    from ..docs import open_guide
+    opened, url = open_guide(anchor)
+    r.out(("Opened the user guide in your browser." if opened else "Could not open a browser; open this file yourself:") + f"  {r.c(url, 'grey')}")
+    r.out()
 
 
 # ------------------------------------------------------------------ settings and history
@@ -251,7 +288,8 @@ def pick_language(app: App, preset: str | None = None, assume_yes: bool = False)
             if rows:
                 ans = r.prompt("Choose a number or a letter:",
                                help="A number opens that language. n adds a new language, r opens the review queue, "
-                                    "h the history, s the settings, q leaves. A language name or ISO code typed here also works.")
+                                    "h the history, w the web interface, g the user guide, s the settings, q leaves. "
+                                    "A language name or ISO code typed here also works.")
                 low = ans.lower()
                 if not ans:
                     continue
@@ -268,6 +306,12 @@ def pick_language(app: App, preset: str | None = None, assume_yes: bool = False)
                     continue
                 if low == "s":
                     settings_menu(app)
+                    continue
+                if low == "w":
+                    open_web_interface(app)
+                    continue
+                if low == "g":
+                    open_user_guide()
                     continue
                 if low != "n":
                     query = ans            # a name or code typed directly
@@ -435,6 +479,8 @@ def main_menu(app: App, profile: Profile) -> None:
                 "Import Files / Folder",
                 "View Existing Collection",
                 "Language Profile",
+                "Web Interface",
+                "User Guide",
                 "Exit",
             ], help=MAIN_HELP, descriptions=[
                 "catalogues and archives, or an agent searching the web",
@@ -443,6 +489,8 @@ def main_menu(app: App, profile: Profile) -> None:
                 f"{app.resources.count_for_language(profile.id)} resource(s) stored"
                 + (r.c(f" · {pending} waiting in the review queue", "yellow") if pending else ""),
                 "complete, review or edit the language profile",
+                "this language in your browser" + (f" ({_web_url})" if _web_url else ""),
+                "the guide, in your browser",
                 "back to the list of languages",
             ])
         except Back:
@@ -458,6 +506,10 @@ def main_menu(app: App, profile: Profile) -> None:
                 view_collection(app, profile)
             elif idx == 4:
                 profile_step(app, profile, force_menu=True)
+            elif idx == 5:
+                open_web_interface(app, profile.id)
+            elif idx == 6:
+                open_user_guide("web")
             else:
                 return
         except Back:
@@ -940,5 +992,5 @@ def run_interactive(app: App, preset_language: str | None = None, assume_yes: bo
 
 
 __all__ = ["run_interactive", "pick_language", "profile_step", "offline_collection", "run_import", "catalogue_search", "agent_search", "choose_agent_provider", "choose_search_engines", "search_engine_add_wizard",
-           "settings_menu", "show_history", "review_picker",
+           "settings_menu", "show_history", "review_picker", "open_web_interface", "open_user_guide",
            "print_summary", "run_review"]
