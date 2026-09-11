@@ -147,3 +147,21 @@ class PipelineTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ReviewSummaryTests(unittest.TestCase):
+    def test_summary_per_language(self):
+        with TempHome() as t:
+            p = t.tangsa()
+            res = t.app.language_service.resolve("njb")
+            q, _ = t.app.language_service.open_from_resolution(res.best)
+            t.app.review_service.propose_profile_field(p, "identity", "exonyms", ["A"], 0.5, "x")
+            t.app.review_service.propose_profile_field(p, "identity", "exonyms", ["B"], 0.5, "x")
+            t.app.review_service.propose_profile_field(q, "identity", "exonyms", ["C"], 0.5, "x")
+            (t.docs / "Rangpan_song.wav").write_bytes(b"RIFF....WAVEfmt ")
+            t.app.collection_service.run_offline(p, [t.docs / "Rangpan_song.wav"])   # uncertain -> review
+            s = {x["language_id"]: x for x in t.app.review_service.summary()}
+            self.assertEqual(s["nst"]["facts"], 2)
+            self.assertEqual(s["nst"]["resources"], 1)
+            self.assertEqual(s["nst"]["total"], 3)
+            self.assertEqual(s["njb"]["total"], 1)

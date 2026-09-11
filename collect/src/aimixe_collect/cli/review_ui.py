@@ -11,7 +11,11 @@ def run_review(app: App, language_id: str | None = None) -> int:
     if not items:
         r.out("Nothing to review.")
         return 0
-    r.title_bar(f"Review Queue · {len(items)} item(s)")
+    names = {row["id"]: (row["name"], row["iso639_3"] or row["id"]) for row in app.languages.list()}
+    if language_id and language_id in names:
+        r.title_bar(f"Review Queue · {names[language_id][0]} [{names[language_id][1]}] · {len(items)} item(s)")
+    else:
+        r.title_bar(f"Review Queue · all languages · {len(items)} item(s)")
     r.note("  Accept writes the value into the profile or confirms the resource; Reject keeps it recorded as rejected; "
            "Skip leaves it for later.")
     done = 0
@@ -19,7 +23,8 @@ def run_review(app: App, language_id: str | None = None) -> int:
         for item in items:
             while True:
                 r.out()
-                r.note(f"  item {items.index(item) + 1} of {len(items)}")
+                lang = names.get(item.language_id, (item.language_id, item.language_id))
+                r.note(f"  item {items.index(item) + 1} of {len(items)} · {lang[0]} [{lang[1]}]")
                 if item.kind == "profile_field":
                     r.out(r.c("Possible new language information detected", "bold"))
                     r.out()

@@ -108,10 +108,10 @@
         <button id="home-settings" class="ghost">Settings</button>
       </div>`;
     $$("button[data-open]", el).forEach((b) => b.addEventListener("click", () => openLanguage(b.dataset.open)));
-    $$("button[data-review]", el).forEach((b) => b.addEventListener("click", async () => { await openLanguage(b.dataset.review); show("review"); }));
+    $$("button[data-review]", el).forEach((b) => b.addEventListener("click", async () => { state.reviewLang = undefined; await openLanguage(b.dataset.review); show("review"); }));
     $$(".lang-card", el).forEach((c) => c.addEventListener("dblclick", () => openLanguage(c.dataset.id)));
     $("#home-new").addEventListener("click", () => show("find"));
-    $("#home-review").addEventListener("click", () => { state.lang = null; show("review"); });
+    $("#home-review").addEventListener("click", () => { state.lang = null; state.reviewLang = null; show("review"); });
     $("#home-history").addEventListener("click", () => { state.lang = null; show("history"); });
     $("#home-settings").addEventListener("click", () => show("settings"));
   }
@@ -484,8 +484,11 @@
   // ------------------------------------------------------------------ review (§18)
   async function renderReview() {
     const el = $("#view-review");
-    const { items } = await get(state.lang ? `/api/review?language=${encodeURIComponent(state.lang)}` : "/api/review");
-    el.innerHTML = `<h1>Review Queue <span class="muted">${items.length} item(s)${state.lang ? "" : " · all languages"}</span></h1>
+    const filter = state.reviewLang !== undefined ? state.reviewLang : state.lang;
+    const [{ items }, summary] = await Promise.all([get(filter ? `/api/review?language=${encodeURIComponent(filter)}` : "/api/review"), get("/api/review/summary")]);
+    const total = summary.languages.reduce((n, l) => n + l.total, 0);
+    el.innerHTML = `<h1>Review Queue <span class="muted">${items.length} item(s)</span></h1>
+      <p class="row"><label>Language <select id="review-filter"><option value="">all languages (${total})</option>${summary.languages.map((l) => `<option value="${esc(l.language_id)}" ${filter === l.language_id ? "selected" : ""}>${esc(l.name)} [${esc(l.iso639_3 || l.language_id)}] — ${l.total} waiting${l.resources ? `, ${l.resources} resource(s)` : ""}${l.facts ? `, ${l.facts} fact(s)` : ""}</option>`).join("")}</select></label></p>
       <p class="muted">Uncertain resources and language facts proposed by catalogues or the agent. Nothing reaches the canonical profile without an accept here.</p>
       ${items.length ? items.map((it) => `<div class="card review-card" data-id="${it.id}">
         ${state.lang ? "" : `<div class="muted">${esc(it.language_id)}</div>`}
@@ -493,6 +496,7 @@
           : `<h3>Uncertain resource</h3><dl class="kv"><dt>Resource</dt><dd>${esc(it.payload.name)}</dd><dt>Relevance</dt><dd>${it.payload.relevance} (${esc(it.payload.band)}) — ${esc((it.payload.reasons || []).join("; "))}</dd></dl>`}
         <p class="muted">Confidence: ${Math.round((it.confidence || 0) * 100)}% · Source: ${/^https?:/.test(it.source_ref || "") ? `<a href="${esc(it.source_ref)}" target="_blank" rel="noopener">${esc(it.source_ref)}</a>` : esc(it.source_ref || "—")}</p>
         <div class="actions"><button data-act="accept">Accept</button><button data-act="reject" class="danger">Reject</button><button data-act="view" class="ghost">View source</button><button data-act="skip" class="ghost">Skip</button></div><pre class="log hidden"></pre></div>`).join("") : "<p>Nothing to review.</p>"}`;
+    $("#review-filter").addEventListener("change", (e) => { state.reviewLang = e.target.value || null; renderReview(); });
     $$(".review-card", el).forEach((card) => $$("button", card).forEach((b) => b.addEventListener("click", async () => {
       const id = card.dataset.id, act = b.dataset.act;
       try {

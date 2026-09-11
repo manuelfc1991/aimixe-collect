@@ -242,7 +242,10 @@ def _run_sub(argv: list[str]) -> int:
                     r.err(f"Unknown language {ns.language}")
                     return EXIT_INVALID
                 lid = res.best.language_id
-            run_review(app, lid)
+            if lid is None and len(app.review_service.summary()) > 1 and sys.stdin.isatty():
+                interactive.review_picker(app)
+            else:
+                run_review(app, lid)
             return EXIT_OK
 
         if ns.command == "resume":

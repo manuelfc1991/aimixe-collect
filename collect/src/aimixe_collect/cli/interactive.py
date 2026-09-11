@@ -119,6 +119,36 @@ def home_screen(app: App) -> list:
 
 
 # ------------------------------------------------------------------ settings and history
+def review_picker(app: App) -> None:
+    """After r on the home screen: choose which language's queue to review, or all."""
+    summary = app.review_service.summary()
+    if not summary:
+        r.out("Nothing to review.")
+        return
+    r.heading("Review queue")
+    width = max(len(s["name"]) for s in summary)
+    total = sum(s["total"] for s in summary)
+    for i, s in enumerate(summary, 1):
+        kinds = " · ".join(filter(None, [f"{s['resources']} resource(s)" if s["resources"] else "",
+                                          f"{s['facts']} language fact(s)" if s["facts"] else ""]))
+        r.out(f"  {r.c(str(i), 'cyan', 'bold'):>2}  {r.c(s['name'].ljust(width), 'bold')}  {r.c(s['iso639_3'] or s['language_id'], 'grey')}  "
+              f"{r.c(f'{s['total']:3} waiting', 'yellow')}   {r.c(kinds, 'grey')}")
+    r.out(f"  {r.c('a', 'cyan', 'bold'):>2}  all languages  {r.c(f'({total})', 'grey')}")
+    r.out(f"  {r.c('b', 'cyan', 'bold'):>2}  back")
+    r.out()
+    while True:
+        ans = r.prompt("Which language?", help="A number reviews that language's queue; a reviews everything; b goes back.").lower()
+        if not ans or ans in ("b", "back"):
+            return
+        if ans == "a":
+            run_review(app, None)
+            return
+        if ans.isdigit() and 1 <= int(ans) <= len(summary):
+            run_review(app, summary[int(ans) - 1]["language_id"])
+            return
+        r.out("Enter a number, a or b.")
+
+
 def settings_menu(app: App) -> None:
     while True:
         name, ok, _ = app.agent_service.agent_status()
@@ -231,7 +261,7 @@ def pick_language(app: App, preset: str | None = None, assume_yes: bool = False)
                         return profile
                     continue
                 if low == "r":
-                    run_review(app, None)
+                    review_picker(app)
                     continue
                 if low == "h":
                     show_history(app, None)
@@ -910,5 +940,5 @@ def run_interactive(app: App, preset_language: str | None = None, assume_yes: bo
 
 
 __all__ = ["run_interactive", "pick_language", "profile_step", "offline_collection", "run_import", "catalogue_search", "agent_search", "choose_agent_provider", "choose_search_engines", "search_engine_add_wizard",
-           "settings_menu", "show_history",
+           "settings_menu", "show_history", "review_picker",
            "print_summary", "run_review"]

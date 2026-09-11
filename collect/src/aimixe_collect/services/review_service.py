@@ -36,6 +36,20 @@ class ReviewService:
     def pending(self, language_id: str | None = None) -> list[ReviewItem]:
         return [self._item(r) for r in self.app.reviews.pending(language_id)]
 
+    def summary(self) -> list[dict]:
+        """Per language: how many items wait, split into resources and language facts."""
+        rows = self.app.conn.execute(
+            "SELECT ri.language_id, l.name, l.iso639_3, ri.kind, count(*) AS n FROM review_item ri "
+            "JOIN language l ON l.id = ri.language_id WHERE ri.status='pending' "
+            "GROUP BY ri.language_id, ri.kind ORDER BY l.name").fetchall()
+        out: dict[str, dict] = {}
+        for r in rows:
+            d = out.setdefault(r["language_id"], {"language_id": r["language_id"], "name": r["name"],
+                                                    "iso639_3": r["iso639_3"], "resources": 0, "facts": 0, "total": 0})
+            d["resources" if r["kind"] == "resource" else "facts"] += r["n"]
+            d["total"] += r["n"]
+        return list(out.values())
+
     def propose_profile_field(self, profile: Profile, group: str, field: str, value: Any,
                               confidence: float, source_ref: str, source_type: str = "agent",
                               session_id: str | None = None, quote: str | None = None) -> int:

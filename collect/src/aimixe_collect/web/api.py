@@ -109,6 +109,8 @@ class Api:
             return {"session": _jsonable(s), "events": [_jsonable(e) for e in app.history_service.events(parts[1])]}
         if head == "history" and method == "GET":
             return {"sessions": [_jsonable(s) for s in app.history_service.list(q.get("language"))]}
+        if head == "review" and parts[1:] == ["summary"] and method == "GET":
+            return {"languages": app.review_service.summary()}
         if head == "review":
             return self._review(app, method, parts[1:], q, body)
         if head == "catalogues":
