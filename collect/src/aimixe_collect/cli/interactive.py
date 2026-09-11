@@ -60,6 +60,18 @@ def _language_state(app: App, row) -> tuple[str, str]:
     return "  ".join(tags), step
 
 
+def _local(iso: str) -> str:
+    """An ISO UTC timestamp as local 'YYYY-MM-DD HH:MM'."""
+    from datetime import datetime, timezone
+    try:
+        t = datetime.fromisoformat(iso)
+        if t.tzinfo is None:
+            t = t.replace(tzinfo=timezone.utc)
+        return t.astimezone().strftime("%Y-%m-%d %H:%M")
+    except ValueError:
+        return iso[:16]
+
+
 def _when(iso: str) -> str:
     """'today 14:02', 'yesterday', '3 days ago' or the date, from an ISO timestamp (UTC)."""
     from datetime import datetime, timezone
@@ -81,7 +93,7 @@ def _when(iso: str) -> str:
 
 
 def home_screen(app: App) -> list:
-    """List the languages already entered, each with its state and a next step. Returns the rows."""
+    """List the languages already entered, each with its state and a next step, then the actions."""
     rows = list(app.languages.list())
     r.title_bar()
     if not rows:
@@ -94,10 +106,92 @@ def home_screen(app: App) -> list:
         code = row["iso639_3"] or row["id"]
         r.out(f"  {r.c(str(i), 'cyan', 'bold'):>2}  {r.c(row['name'].ljust(width), 'bold')}  {r.c(code, 'grey')}  {tags}")
         r.hint(step, indent=6)
+    pending = len(app.review_service.pending())
     r.out()
-    r.note("  a number opens that language · a name or ISO code starts another · q leaves")
+    r.out(f"  {r.c('n', 'cyan', 'bold')}  new language  {r.c('(name or ISO 639-3 code)', 'grey')}")
+    r.out(f"  {r.c('r', 'cyan', 'bold')}  review everything waiting"
+          + (f"  {r.c(f'({pending} item(s))', 'yellow')}" if pending else f"  {r.c('(nothing waiting)', 'grey')}"))
+    r.out(f"  {r.c('h', 'cyan', 'bold')}  collection history")
+    r.out(f"  {r.c('s', 'cyan', 'bold')}  settings: agent, search engines, catalogues")
+    r.out(f"  {r.c('q', 'cyan', 'bold')}  leave")
     r.out()
     return rows
+
+
+# ------------------------------------------------------------------ settings and history
+def settings_menu(app: App) -> None:
+    while True:
+        name, ok, _ = app.agent_service.agent_status()
+        engines = ", ".join(b.name for b in app.agent_service.backends()) or "none usable"
+        cats = [e.name for e in app.catalogue_service.list() if e.enabled]
+        try:
+            idx = r.choose("Settings", [
+                "Agent provider", "Search engines", "Catalogues", "Back",
+            ], descriptions=[f"now: {name}" + ("" if ok else " (not available; rule-based used)"),
+                             f"now: {engines}", f"{len(cats)} enabled: {', '.join(cats)}", ""], remember=False)
+        except Back:
+            return
+        if idx == 0:
+            choose_agent_provider(app)
+        elif idx == 1:
+            choose_search_engines(app)
+        elif idx == 2:
+            catalogues_menu(app)
+        else:
+            return
+
+
+def catalogues_menu(app: App) -> None:
+    while True:
+        svc = app.catalogue_service
+        rows = [[e.name, e.provider.kind, "yes" if e.enabled else "no",
+                 "built-in" if e.source == "builtin" else e.source, e.provider.description[:60]] for e in svc.list()]
+        r.heading("Catalogues")
+        r.table(rows, headers=["name", "kind", "enabled", "source", "what"])
+        try:
+            idx = r.choose("Catalogues", ["Add a catalogue", "Remove or disable a catalogue", "Back"], remember=False)
+        except Back:
+            return
+        if idx == 0:
+            cfg = catalogue_add_wizard()
+            if cfg:
+                try:
+                    r.out(f"Saved to {svc.add(cfg)}")
+                except ValueError as exc:
+                    r.err(f"Invalid catalogue: {exc}")
+        elif idx == 1:
+            name = r.prompt("Catalogue name to remove:")
+            if name:
+                try:
+                    r.out(svc.remove(name))
+                except ValueError as exc:
+                    r.err(str(exc))
+        else:
+            return
+
+
+def show_history(app: App, language_id: str | None) -> None:
+    sessions = app.history_service.list(language_id)
+    r.title_bar("Collection History")
+    if not sessions:
+        r.out("No collection sessions yet.")
+        return
+    r.table([[s.id, f"{s.language_name} [{s.language_id}]", s.mode, s.status, _local(s.started_at),
+              str(s.discovered), str(s.relevant), str(s.downloaded), str(s.duplicates), str(s.failed), str(s.pending_review)]
+             for s in sessions],
+            headers=["session", "language", "mode", "status", "started", "disc", "rel", "down", "dup", "fail", "review"])
+    r.out()
+    while True:
+        ans = r.prompt("Session id for its events (blank to go back):", help="Type a session id from the first column.")
+        if not ans or ans.lower() in ("b", "back"):
+            return
+        s = app.history_service.get(ans)
+        if s is None:
+            r.out("No such session.")
+            continue
+        print_summary(s, app)
+        for ev in app.history_service.events(ans):
+            r.out(f"  {r.c(ev['ts'][11:19], 'grey')}  {ev['level']:5}  {ev['message'][:110]}")
 
 
 # ------------------------------------------------------------------ §1 language step
@@ -124,16 +218,35 @@ def pick_language(app: App, preset: str | None = None, assume_yes: bool = False)
     while True:
         if not query:
             rows = home_screen(app)
+            if rows:
+                ans = r.prompt("Choose a number or a letter:",
+                               help="A number opens that language. n adds a new language, r opens the review queue, "
+                                    "h the history, s the settings, q leaves. A language name or ISO code typed here also works.")
+                low = ans.lower()
+                if not ans:
+                    continue
+                if ans.isdigit() and 1 <= int(ans) <= len(rows):
+                    profile = app.language_service.load(rows[int(ans) - 1]["id"])
+                    if profile is not None:
+                        return profile
+                    continue
+                if low == "r":
+                    run_review(app, None)
+                    continue
+                if low == "h":
+                    show_history(app, None)
+                    continue
+                if low == "s":
+                    settings_menu(app)
+                    continue
+                if low != "n":
+                    query = ans            # a name or code typed directly
+                    continue
             query = r.prompt("Enter language name or ISO 639-3 code:",
-                             help="A language name (Tangsa), an ISO 639-3 code (nst), an alternative name or a dialect name, "
-                                  "or the number of a language listed above. The local registry is searched first, "
-                                  "then the bundled ISO 639-3 / Glottolog tables.")
+                             help="A language name (Tangsa), an ISO 639-3 code (nst), an alternative name or a dialect name. "
+                                  "The local registry is searched first, then the bundled ISO 639-3 / Glottolog tables.")
             if not query:
                 continue
-            if query.isdigit() and 1 <= int(query) <= len(rows):
-                profile = app.language_service.load(rows[int(query) - 1]["id"])
-                if profile is not None:
-                    return profile
         res: Resolution = app.language_service.resolve(query)
         chosen: ResolvedLanguage | None = None
         if res.status == "exact":
@@ -797,4 +910,5 @@ def run_interactive(app: App, preset_language: str | None = None, assume_yes: bo
 
 
 __all__ = ["run_interactive", "pick_language", "profile_step", "offline_collection", "run_import", "catalogue_search", "agent_search", "choose_agent_provider", "choose_search_engines", "search_engine_add_wizard",
+           "settings_menu", "show_history",
            "print_summary", "run_review"]

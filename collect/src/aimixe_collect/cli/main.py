@@ -228,13 +228,10 @@ def _run_sub(argv: list[str]) -> int:
             if ns.json:
                 r.out(json.dumps([s.__dict__ for s in sessions], indent=2))
                 return EXIT_OK
-            if not sessions:
-                r.out("No collection sessions yet.")
-                return EXIT_OK
-            r.table([[s.id, f"{s.language_name} [{s.language_id}]", s.mode, s.status, s.started_at[:19],
-                      str(s.discovered), str(s.relevant), str(s.downloaded), str(s.duplicates), str(s.failed),
-                      str(s.pending_review)] for s in sessions],
-                    headers=["session", "language", "mode", "status", "started", "disc", "rel", "down", "dup", "fail", "review"])
+            try:
+                interactive.show_history(app, ns.language)
+            except (Abort, r.Back):
+                pass
             return EXIT_OK
 
         if ns.command == "review":
