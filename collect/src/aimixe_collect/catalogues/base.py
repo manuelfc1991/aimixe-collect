@@ -103,7 +103,7 @@ class CatalogueProvider:
         if self.asks_by in ("name", "both"):
             from ..relevance.scorer import _ambiguous_name
             add(f"{t.name} language" if _ambiguous_name(t.name) else t.name, "name")
-            for a in t.alternate_names[:3]:
+            for a in [x for x in t.alternate_names if ", " not in x][:3]:   # skip inverted index forms
                 add(a if " " in a.strip() else f"{a} language", "alternate_name")
             for v in t.varieties[:2]:
                 add(v, "variety")

@@ -68,7 +68,7 @@ class RuleBasedAgent(AgentProvider):
             if state in ("yes", "limited", "reported", "historical"):
                 for q in family:
                     add(q.format(name=t.name), "resources", f"profile says {fld}: {state}")
-        for alt in t.alternate_names[:4]:
+        for alt in [a for a in t.alternate_names if ", " not in a][:4]:     # skip inverted index forms "Zhuang, Yongnan"
             if len(fold(alt)) >= 5:
                 for q in ALT_QUERIES:
                     add(q.format(alt=alt), "alternate_name")
