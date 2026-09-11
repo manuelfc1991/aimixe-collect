@@ -17,4 +17,4 @@ PYTHONPATH=src:tests python3 -m unittest discover -s tests
 
 ## Licence
 
-MIT, see `LICENSE`. Bundled language data (Glottolog, ISO 639-3, ISO 15924, ISO 3166) keeps its own terms, listed at the end of `LICENSE`.
+MIT, see `LICENSE`. Bundled language data (Glottolog, ISO 639-3, ISO 15924, ISO 3166) keeps its own terms, listed in `THIRD_PARTY_DATA.md`.

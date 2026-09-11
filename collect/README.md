@@ -142,4 +142,4 @@ input · 50 configuration · 70 internal.
 
 ## Licence
 
-MIT (see the repository's `LICENSE`). The bundled language data under `src/aimixe_collect/data/` keeps its own terms; see `data/REGISTRIES.md` and `data/reference-SOURCES.md`.
+MIT (see the repository's `LICENSE`; data terms in `THIRD_PARTY_DATA.md`). The bundled language data under `src/aimixe_collect/data/` keeps its own terms; see `data/REGISTRIES.md` and `data/reference-SOURCES.md`.
