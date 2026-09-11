@@ -273,8 +273,11 @@ class IngestionPipeline:
         self.ctx.reviews.add(cand.language_id, self.ctx.session_id, "resource",
                              {"resource_id": rid, "sha256": sha, "name": cand.display,
                               "relevance": rel.score, "band": rel.band, "reasons": rel.reasons,
-                              "path": str(cand.local_path) if cand.local_path else cand.url},
-                             rel.score / 100.0, cand.original_path or str(cand.local_path or cand.url))
+                              "path": str(cand.local_path) if cand.local_path else cand.url,
+                              "source_url": cand.source_url, "url": cand.url},
+                             rel.score / 100.0,
+                             (cand.original_path or str(cand.local_path)) if cand.method in ("offline", "import")
+                             else (cand.url or cand.source_url or str(cand.local_path)))
 
     def _write_sidecar(self, language_id, rid, sha, original, stored, fmt, meta, rel, types, cand) -> None:
         mdir = self.ctx.config.paths.metadata_dir(language_id)

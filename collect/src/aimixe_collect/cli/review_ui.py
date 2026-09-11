@@ -17,7 +17,7 @@ def run_review(app: App, language_id: str | None = None) -> int:
     else:
         r.title_bar(f"Review Queue · all languages · {len(items)} item(s)")
     r.note("  Accept writes the value into the profile or confirms the resource; Reject keeps it recorded as rejected; "
-           "Skip leaves it for later.")
+           "Skip leaves it for later; Back returns to the menu with the rest still waiting.")
     done = 0
     try:
         for item in items:
@@ -49,7 +49,11 @@ def run_review(app: App, language_id: str | None = None) -> int:
                 r.out(f"[{r.c('R', 'red', 'bold')}] Reject")
                 r.out(f"[{r.c('V', 'cyan', 'bold')}] View source")
                 r.out(f"[{r.c('S', 'bold')}] Skip")
-                ans = r.prompt().lower()
+                r.out(f"[{r.c('B', 'bold')}] Back")
+                ans = r.prompt(help="A accept · R reject · V view the source · S skip this one · B back to the menu").lower()
+                if ans in ("b", "back"):
+                    r.out(f"Back; {len(items) - items.index(item)} item(s) still waiting.")
+                    return done
                 if ans == "a":
                     app.review_service.accept(item)
                     done += 1

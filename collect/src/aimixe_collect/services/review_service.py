@@ -96,10 +96,26 @@ class ReviewService:
 
     def source_text(self, item: ReviewItem, limit: int = 4000) -> str:
         """Best-effort view of the item's source for the [V] option."""
+        from pathlib import Path
+        rid = item.payload.get("resource_id") if item.kind == "resource" else None
+        if rid:
+            row = self.app.conn.execute("SELECT stored_path, format, size FROM resource WHERE id=?", (rid,)).fetchone()
+            if row is not None:
+                head = f"stored copy: {row['stored_path']}  ({row['format']}, {row['size']} bytes)"
+                for k in ("source_url", "url"):
+                    if item.payload.get(k):
+                        head += f"\nfrom: {item.payload[k]}"
+                for e in self.app.resources.extractions(rid):
+                    if e["kind"] == "text" and Path(e["path"]).is_file():
+                        return head + "\n\n" + Path(e["path"]).read_text(encoding="utf-8", errors="replace")[:limit]
+                p = Path(row["stored_path"])
+                if p.is_file():
+                    raw = p.read_bytes()[:limit]
+                    return head + ("\n(binary file)" if b"\x00" in raw else "\n\n" + raw.decode("utf-8", "replace"))
+                return head
         ref = item.source_ref or item.payload.get("path")
         if not ref:
             return "(no source reference)"
-        from pathlib import Path
         p = Path(str(ref))
         if p.is_file():
             try:

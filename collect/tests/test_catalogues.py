@@ -193,3 +193,20 @@ class SurnameLikeNameTests(unittest.TestCase):
             self.assertGreaterEqual(exact.score, 90)
             # a term is evidence once, even when it is both an alternative name and the parent macrolanguage
             self.assertEqual(sum("Zhuang" in r for r in about.reasons), 1)
+
+
+class ReviewSourceTests(unittest.TestCase):
+    def test_online_review_item_points_at_the_web_address_and_stored_copy(self):
+        with TempHome() as t:
+            p = t.tangsa()
+            svc = t.app.catalogue_service
+            report = svc.search(p, providers=[FakeProvider(t.docs)])
+            svc.registry.entries["fake"] = type("E", (), {"provider": FakeProvider(t.docs), "name": "fake",
+                                                          "enabled": True, "source": "test"})()
+            svc.collect(p, report)
+            items = [i for i in t.app.review_service.pending("nst") if i.kind == "resource"]
+            self.assertTrue(items)
+            self.assertTrue(items[0].source_ref.startswith("https://"), items[0].source_ref)   # not a temp path
+            text = t.app.review_service.source_text(items[0])
+            self.assertIn("stored copy:", text)
+            self.assertIn("/resources/", text)
