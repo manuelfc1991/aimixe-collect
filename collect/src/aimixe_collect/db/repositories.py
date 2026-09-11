@@ -220,12 +220,20 @@ class SessionRepo:
         return f"{prefix}-{n:03d}"
 
     def create(self, language_id: str, mode: str, params: dict[str, Any] | None = None) -> str:
-        sid = self.new_id()
-        self.conn.execute(
-            "INSERT INTO session(id, language_id, mode, status, started_at, params_json) VALUES (?,?,?,?,?,?)",
-            (sid, language_id, mode, "running", now_iso(), json.dumps(params or {}, ensure_ascii=False)))
-        self.conn.commit()
-        return sid
+        # Two runs may start in the same moment (a scan in the browser, an import in the terminal):
+        # the id is chosen and inserted under one write lock, and a collision simply takes the next number.
+        for _ in range(50):
+            self.conn.execute("BEGIN IMMEDIATE")
+            try:
+                sid = self.new_id()
+                self.conn.execute(
+                    "INSERT INTO session(id, language_id, mode, status, started_at, params_json) VALUES (?,?,?,?,?,?)",
+                    (sid, language_id, mode, "running", now_iso(), json.dumps(params or {}, ensure_ascii=False)))
+                self.conn.execute("COMMIT")
+                return sid
+            except sqlite3.IntegrityError:
+                self.conn.execute("ROLLBACK")
+        raise RuntimeError("could not allocate a session id")
 
     def bump(self, session_id: str, counter: str, by: int = 1) -> None:
         if counter not in self.COUNTERS:

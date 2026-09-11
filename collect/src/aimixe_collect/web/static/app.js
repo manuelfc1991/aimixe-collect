@@ -220,7 +220,7 @@
         <div class="group-nav">${groupCounts.map(({ g, known, total, state: s }, i) => `<button data-go="${g.name}" class="${i === 0 ? "on" : ""}"><i class="dot lg ${s === "done" ? "" : known ? "amber" : "grey"}"></i>${esc(g.progress_label)}<span class="n">${known}/${total}</span></button>`).join("")}</div>
         <button class="btn primary lg" id="profile-propose">Propose values ${ARROW}</button>
         <span class="note">Glottolog and a short read of pages about the language. Nothing is downloaded; each fact waits for your decision in the review queue.</span>
-        <div class="job hidden" id="propose-job"><pre class="log" id="propose-log"></pre><div class="progress-box"></div></div>
+        ${jobsArea("propose-jobs")}
       </div>
       <div class="rows-wrap">${schema.groups.map((g, gi) => {
         const gc = groupCounts[gi];
@@ -251,11 +251,8 @@
     $$("[data-go]", el).forEach((b) => b.addEventListener("click", () => { $$("[data-go]", el).forEach((x) => x.classList.toggle("on", x === b)); $(`#group-${b.dataset.go}`).scrollIntoView({ behavior: "smooth", block: "start" }); }));
     $$("[data-rv]", el).forEach((a) => a.addEventListener("click", async (e) => { e.preventDefault(); try { await post(`/api/review/${a.dataset.rv}/${a.dataset.act}`); toast(a.dataset.act === "accept" ? "Accepted" : "Rejected"); refreshStatus(); renderers.profile(); } catch (err) { fail(err); } }));
     const proposeDone = (j) => { const c = j.result || {}; toast(`${c.catalogue || 0} fact(s) from Glottolog, ${c.agent || 0} from ${c.pages || 0} page(s)`); if ((c.catalogue || 0) + (c.agent || 0) > 0) { state.reviewLang = state.lang; show("review"); } else renderers.profile(); };
-    $("#profile-propose").addEventListener("click", async () => {
-      const job = $("#propose-job"); job.classList.remove("hidden");
-      try { await runJob("profile_enrich", {}, $("#propose-log"), proposeDone); } catch (e) { fail(e); }
-    });
-    resumeJob(["profile_enrich"], "propose-job", () => {}, (j) => j.status === "running").catch(() => {});
+    $("#profile-propose").addEventListener("click", async () => { try { await runJobIn("propose-jobs", "profile_enrich", {}, proposeDone); } catch (e) { fail(e); } });
+    resumeJobs(["profile_enrich"], "propose-jobs", () => {}, (j) => j.status === "running").catch(() => {});
     $$(".field-row", el).forEach((row) => {
       const form = $(".editor", row);
       $(".edit", row).addEventListener("click", () => { form.classList.toggle("hidden"); row.classList.toggle("editing", !form.classList.contains("hidden")); const first = $("input, select, textarea", form); if (first && !form.classList.contains("hidden")) first.focus(); });
@@ -353,18 +350,26 @@
     return jobs.find((j) => kinds.includes(j.kind) && j.language_id === state.lang && (!extra || extra(j))) || null;
   }
   const jobHead = (j) => `<div class="job-head">${j.status === "running" ? '<span class="spinner"></span>' : ""}<b>${esc(JOB_LABEL[j.kind] || j.kind)}</b> started ${esc(when(j.started_at))}${j.status !== "running" ? ` · ${esc(j.status)} ${esc(when(j.finished_at))}` : " · still running; you can leave this page and come back"}${j.params && j.params.path ? ` · ${esc(j.params.path)}` : ""}${j.params && j.params.roots ? ` · ${esc(j.params.roots.join(", "))}` : ""}</div>`;
-  /** Show the latest job of these kinds for the current language (running or done) in the view's job box. */
-  async function resumeJob(kinds, boxId, onDone, extra) {
-    const j = await latestJob(kinds, extra);
-    if (!j) return null;
-    const box = $(`#${boxId}`); if (!box) return null;
-    box.classList.remove("hidden");
-    let head = $(".job-head", box); if (!head) { head = document.createElement("div"); box.prepend(head); }
-    head.outerHTML = jobHead(j);
-    const log = $("pre", box);
-    if (j.status === "running") { attachJob(j.id, log, (done) => { $(".job-head", box).outerHTML = jobHead(done); onDone(done); }).catch(() => {}); }
-    else { const full = await get(`/api/jobs/${j.id}`); log.textContent = full.log.join("\n"); if (full.status === "finished") onDone(full); else if (full.error) toast(full.error, true); }
-    return j;
+  /** Run a new job in its own block. onDone(job, resultEl) draws the result into the block. */
+  async function runJobIn(areaId, kind, params, onDone) {
+    const b = jobBlock(areaId, null);
+    const id = await startJob(kind, params);
+    b.el.dataset.job = id;
+    return attachJob(id, b.log, (j) => { b.head(j); if (onDone) onDone(j, b.result); b.el.scrollIntoView({ behavior: "smooth", block: "nearest" }); }).catch((e) => { b.head({ kind, status: "failed", started_at: new Date().toISOString(), finished_at: new Date().toISOString() }); throw e; });
+  }
+  /** Show every running job of these kinds for the current language, plus the most recent finished one. */
+  async function resumeJobs(kinds, areaId, onDone, extra) {
+    const jobs = (await get("/api/jobs?summary=1")).jobs.filter((j) => kinds.includes(j.kind) && j.language_id === state.lang && (!extra || extra(j)));
+    const running = jobs.filter((j) => j.status === "running");
+    const done = jobs.find((j) => j.status !== "running");
+    const shown = done ? [...running, done] : running;
+    if (!$(`#${areaId}`)) return shown;
+    for (const j of shown.slice().reverse()) {          // oldest first so the newest ends up on top
+      const b = jobBlock(areaId, j);
+      if (j.status === "running") attachJob(j.id, b.log, (full) => { b.head(full); onDone(full, b.result); }).catch(() => {});
+      else { const full = await get(`/api/jobs/${j.id}`); b.log.textContent = full.log.join("\n"); if (full.status === "finished") onDone(full, b.result); else if (full.error) b.result.innerHTML = `<p class="note" style="color:var(--red)">${esc(full.error)}</p>`; }
+    }
+    return shown;
   }
   function renderProgress(logEl, j) {
     let box = logEl.nextElementSibling;
@@ -383,8 +388,15 @@
         <div class="bar-track"><div class="bar-fill" style="width:${t.percent != null ? t.percent.toFixed(0) : 100}%"></div></div>
         <div class="xfer-stats">${t.total ? `${t.percent.toFixed(0)}% · ${hb(t.done)} / ${hb(t.total)}` : hb(t.done)} · ${hb(t.speed)}/s${t.eta != null ? ` · eta ${ht(t.eta)}` : ""}</div></div>`).join("");
   }
-  const jobBox = (id) => `<div class="job hidden" id="${id}"><pre class="log"></pre><div class="progress-box"></div></div>`;
-  function openJob(id) { const j = $(`#${id}`); j.classList.remove("hidden"); $(".job-head", j)?.remove(); const pre = $("pre", j); pre.textContent = ""; $(".progress-box", j).innerHTML = ""; return pre; }
+  const jobsArea = (id) => `<div class="jobs" id="${id}"></div>`;
+  /** A block for one job inside a jobs area: header, log, progress, result. Newest on top. */
+  function jobBlock(areaId, j) {
+    const area = $(`#${areaId}`);
+    const el = document.createElement("div"); el.className = "job"; el.dataset.job = j ? j.id : "";
+    el.innerHTML = `${j ? jobHead(j) : '<div class="job-head"><span class="spinner"></span><b>starting …</b></div>'}<pre class="log"></pre><div class="progress-box"></div><div class="job-result"></div>`;
+    area.prepend(el);
+    return { el, log: $("pre", el), result: $(".job-result", el), head: (job) => { $(".job-head", el).outerHTML = jobHead(job); } };
+  }
   function summaryHtml(s) {
     return `<div class="section-head"><h2 class="section">Session ${esc(s.id)}</h2><span class="note">${esc(s.language_name)} · ${esc(s.mode)} · ${esc(s.status)}</span></div>
       <div class="stats">${[["Discovered", s.discovered], ["Relevant", s.relevant], ["Downloaded", s.downloaded], ["Duplicates", s.duplicates], ["Failed", s.failed], ["Pending review", s.pending_review]].map(([k, v]) => `<div class="stat"><span class="n">${v}</span><span class="l">${k}</span></div>`).join("")}</div>`;
@@ -404,24 +416,23 @@
         <p class="lede">Providers search with the whole language profile: ISO code, name, alternative names, varieties, known publications. Lookup providers have no machine-readable search and return a place to open in a browser.</p></div>
       <div class="head-side"><button class="btn primary lg" id="cat-search">Search ${ARROW}</button></div></div>
       <div class="chips">${cats.map((c) => `<label class="chip ${c.enabled ? "" : "off"}"><input type="checkbox" name="prov" value="${esc(c.name)}" ${c.enabled ? "checked" : "disabled"}> ${esc(c.name)} <span class="muted">${esc(c.kind)}</span></label>`).join("")}<a class="link quiet" id="cat-manage">manage catalogues</a></div>
-      ${jobBox("cat-job")}<div id="cat-results"></div>`;
+      ${jobsArea("cat-jobs")}<div id="cat-results"></div>`;
     $("#cat-manage").addEventListener("click", () => show("catalogues"));
-    const searchDone = (j) => {
+    const searchDone = (j, resultEl) => {
       state.lastCatalogueJob = j.id;
-      $("#cat-job").classList.add("hidden");
       const secs = Math.max(0, Math.round((new Date(j.finished_at) - new Date(j.started_at)) / 1000)) || 0;
+      resultEl.innerHTML = `<p class="note">${j.result.results.length} result(s), ${j.result.lookups.length} place(s) to open — shown below.</p>`;
       renderCatalogueResults(j.result, secs, (j.params || {}).providers || []);
-      resumeJob(["catalogue_collect"], "cat-collect-job", (c) => showCollectResult(c), (c) => (c.params || {}).search_job === j.id).catch(() => {});
+      resumeJobs(["catalogue_collect"], "cat-collect-jobs", showCollectResult, (c) => (c.params || {}).search_job === j.id).catch(() => {});
     };
     $("#cat-search").addEventListener("click", async () => {
       const providers = $$("input[name=prov]:checked", el).map((i) => i.value);
-      const log = openJob("cat-job"); $("#cat-results").innerHTML = "";
-      try { await runJob("catalogue_search", { providers }, log, searchDone); } catch (e) { fail(e); }
+      try { await runJobIn("cat-jobs", "catalogue_search", { providers }, searchDone); } catch (e) { fail(e); }
     });
-    resumeJob(["catalogue_search"], "cat-job", searchDone).catch(() => {});
+    resumeJobs(["catalogue_search"], "cat-jobs", searchDone).catch(() => {});
   };
-  function showCollectResult(j2) {
-    const box = $("#cat-collect-result"); if (!box) return;
+  function showCollectResult(j2, box) {
+    if (!box) return;
     box.innerHTML = summaryHtml(j2.result.session) + (j2.result.proposals ? `<p class="note">${j2.result.proposals} language fact(s) proposed for review.</p>` : "") + outcomesHtml(j2.result.outcomes);
     wireResourceRows(box);
   }
@@ -447,13 +458,12 @@
         ${hiddenCount ? `<div class="tfoot"><span>${hiddenCount} more below ${cfg.review_at} — recorded in the session, not downloaded</span><a class="link" id="cat-showall">Show all</a></div>` : ""}${!shown.length ? `<div class="empty">Nothing in this band.</div>` : ""}</div>
         <div class="summary-bar"><div class="chips">${r.lookups.length ? `<span class="eyebrow" style="margin-right:6px">Open in a browser</span>${r.lookups.map((l) => `<a class="chip" href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.provider)}${l.title ? " · " + esc(l.title) : ""}</a>`).join("")}` : ""}</div>
           <div class="dark"><div><span class="t">${plural(selected.length, "result")} selected</span><span class="s">${selConf} confirmed, ${selected.length - selConf} to the review queue · minimum relevance <input id="cat-min" type="number" min="0" max="100" value="${minScore}"></span></div><button class="btn" id="cat-collect" ${selected.length ? "" : "disabled"}>Download ${ARROW}</button></div></div>
-        ${jobBox("cat-collect-job")}<div id="cat-collect-result"></div>`;
+        ${jobsArea("cat-collect-jobs")}`;
       $$("[data-f]", out).forEach((b) => b.addEventListener("click", () => { filter = b.dataset.f; draw(); }));
       $("#cat-showall")?.addEventListener("click", () => { showAll = true; draw(); });
       $("#cat-min").addEventListener("change", (e) => { minScore = Math.max(0, Math.min(100, Number(e.target.value) || 0)); draw(); });
       $("#cat-collect").addEventListener("click", async () => {
-        const log = openJob("cat-collect-job");
-        try { await runJob("catalogue_collect", { search_job: state.lastCatalogueJob, min_score: minScore }, log, (j2) => { showCollectResult(j2); $("#cat-collect-result").scrollIntoView({ behavior: "smooth" }); }); } catch (e) { fail(e); }
+        try { await runJobIn("cat-collect-jobs", "catalogue_collect", { search_job: state.lastCatalogueJob, min_score: minScore }, showCollectResult); } catch (e) { fail(e); }
       });
     };
     draw();
@@ -476,21 +486,20 @@
         <div class="panel"><h3>Search engines</h3><span style="font-size:15px">${usable.length ? esc(usable.join(", ")) : '<span style="color:var(--amber-ink)">none usable</span>'}</span><span class="note">Engines are asked in this order. Keys and regional engines (Baidu, Sogou, Yandex, SearXNG …) are set in <a class="link" id="agent-to-settings">Settings</a>.</span></div>
         <div class="panel"><h3>Your own queries</h3><input id="agent-extra" placeholder="separate several with ;"><span class="note">Added to the planned queries below with basis “user”.</span></div></div>
       <div class="rows"><div class="thead cols-q"><span></span><span>Basis</span><span>Query</span></div>${plan.queries.map((q, i) => `<label class="trow cols-q" style="padding:14px 0;cursor:pointer"><input class="check" type="checkbox" checked data-i="${i}" style="width:16px;height:16px;accent-color:var(--ink)"><span class="cell">${esc(q.basis)}</span><div style="min-width:0"><div class="rtitle" style="font-size:15px">${esc(q.text)}</div>${q.rationale ? `<div class="rsub">${esc(q.rationale)}</div>` : ""}</div></label>`).join("")}</div>
-      ${jobBox("agent-job")}<div id="agent-result"></div>`;
+      ${jobsArea("agent-jobs")}`;
     $("#agent-to-settings").addEventListener("click", () => show("settings"));
     $("#agent-provider").addEventListener("change", async (e) => { try { await post("/api/agent/provider", { provider: e.target.value }); toast(`Agent provider: ${e.target.value}`); await refreshStatus(); renderers.agent(); } catch (err) { fail(err); } });
-    const agentDone = (j) => {
-      const r = j.result, out = $("#agent-result"); if (!out) return;
+    const agentDone = (j, out) => {
+      const r = j.result; if (!out) return;
       out.innerHTML = summaryHtml(r.session) + `<p class="note">Hits ${r.hits} · pages fetched ${r.pages_fetched} · relevant ${r.pages_relevant} · files found ${r.files_found}${r.learned.length ? ` · learned: ${esc(r.learned.join(", "))}` : ""}${r.proposals_queued ? ` · ${r.proposals_queued} fact(s) proposed for review` : ""}</p>` + r.errors.map((e) => `<p class="note" style="color:var(--red)">${esc(e)}</p>`).join("") + outcomesHtml(r.outcomes);
       wireResourceRows(out);
     };
     $("#agent-run").addEventListener("click", async () => {
       const queries = plan.queries.filter((q, i) => $(`input[data-i="${i}"]`, el).checked).map((q) => ({ text: q.text, basis: q.basis, rationale: q.rationale }));
       $("#agent-extra").value.split(";").map((s) => s.trim()).filter(Boolean).forEach((t) => queries.push({ text: t, basis: "user" }));
-      const log = openJob("agent-job");
-      try { await runJob("agent_search", { queries }, log, (j) => { agentDone(j); $("#agent-result").scrollIntoView({ behavior: "smooth" }); }); } catch (e) { fail(e); }
+      try { await runJobIn("agent-jobs", "agent_search", { queries }, agentDone); } catch (e) { fail(e); }
     });
-    resumeJob(["agent_search"], "agent-job", agentDone).catch(() => {});
+    resumeJobs(["agent_search"], "agent-jobs", agentDone).catch(() => {});
   };
 
   // ------------------------------------------------------------------ offline (§8) and import (§9)
@@ -503,19 +512,18 @@
       <div class="cards3"><div class="panel" style="grid-column:span 2"><h3>Folders to scan</h3><textarea id="off-roots" placeholder="/home/you/Documents&#10;one folder per line"></textarea></div>
         <div class="panel"><h3>Options</h3><label class="note">Storage mode ${modeSelect("off-mode")}</label><label class="check"><input type="checkbox" id="off-content" checked> Also look inside text and document files</label></div></div>
       <div class="chips"><span class="eyebrow" style="margin-right:6px">Search terms</span>${terms.slice(0, 24).map((t) => `<span class="chip">${esc(t)}</span>`).join("")}${terms.length > 24 ? `<span class="note">and ${terms.length - 24} more</span>` : ""}</div>
-      ${jobBox("off-job")}<div id="off-result"></div>`;
-    const offDone = (j) => {
-      const out = $("#off-result"); if (!out) return;
+      ${jobsArea("off-jobs")}`;
+    const offDone = (j, out) => {
+      if (!out) return;
       out.innerHTML = summaryHtml(j.result.session) + (j.result.scan ? `<p class="note">Files seen ${j.result.scan.files_seen} · matches ${j.result.scan.hits} · folders skipped ${j.result.scan.dirs_skipped}</p>` : "") + outcomesHtml(j.result.outcomes);
       wireResourceRows(out);
     };
     $("#off-run").addEventListener("click", async () => {
       const roots = $("#off-roots").value.split("\n").map((s) => s.trim()).filter(Boolean);
       if (!roots.length) return toast("Enter at least one folder", true);
-      const log = openJob("off-job");
-      try { await runJob("offline", { roots, mode: $("#off-mode").value, content: $("#off-content").checked }, log, (j) => { offDone(j); $("#off-result").scrollIntoView({ behavior: "smooth" }); }); } catch (e) { fail(e); }
+      try { await runJobIn("off-jobs", "offline", { roots, mode: $("#off-mode").value, content: $("#off-content").checked }, offDone); } catch (e) { fail(e); }
     });
-    resumeJob(["offline"], "off-job", offDone).then((j) => { if (j && j.params && j.params.roots) $("#off-roots").value = j.params.roots.join("\n"); }).catch(() => {});
+    resumeJobs(["offline"], "off-jobs", offDone).then((jobs) => { const j = jobs[0]; if (j && j.params && j.params.roots && !$("#off-roots").value) $("#off-roots").value = j.params.roots.join("\n"); }).catch(() => {});
   };
   renderers.import = async function () {
     const el = $("#view-import"), p = state.profileData.profile;
@@ -524,16 +532,15 @@
       <div class="head-side"><button class="btn primary lg" id="imp-run">Import ${ARROW}</button></div></div>
       <div class="cards3"><div class="panel" style="grid-column:span 2"><h3>Path on this machine</h3><input id="imp-path" placeholder="/path/to/folder or dictionary.pdf"></div>
         <div class="panel"><h3>Storage mode</h3>${modeSelect("imp-mode")}<span class="note">copy keeps the original in place · move relocates it · reference indexes it where it is</span></div></div>
-      ${jobBox("imp-job")}<div id="imp-result"></div>`;
+      ${jobsArea("imp-jobs")}`;
     $("#imp-path").addEventListener("keydown", (e) => { if (e.key === "Enter") $("#imp-run").click(); });
-    const impDone = (j) => { const out = $("#imp-result"); if (!out) return; out.innerHTML = summaryHtml(j.result.session) + outcomesHtml(j.result.outcomes); wireResourceRows(out); };
+    const impDone = (j, out) => { if (!out) return; out.innerHTML = summaryHtml(j.result.session) + outcomesHtml(j.result.outcomes); wireResourceRows(out); };
     $("#imp-run").addEventListener("click", async () => {
       const path = $("#imp-path").value.trim();
       if (!path) return toast("Enter a path", true);
-      const log = openJob("imp-job");
-      try { await runJob("import", { path, mode: $("#imp-mode").value }, log, (j) => { impDone(j); $("#imp-result").scrollIntoView({ behavior: "smooth" }); }); } catch (e) { fail(e); }
+      try { await runJobIn("imp-jobs", "import", { path, mode: $("#imp-mode").value }, impDone); } catch (e) { fail(e); }
     });
-    resumeJob(["import"], "imp-job", impDone).then((j) => { if (j && j.params && j.params.path) $("#imp-path").value = j.params.path; }).catch(() => {});
+    resumeJobs(["import"], "imp-jobs", impDone).then((jobs) => { const j = jobs[0]; if (j && j.params && j.params.path && !$("#imp-path").value) $("#imp-path").value = j.params.path; }).catch(() => {});
   };
 
   // ------------------------------------------------------------------ collection (§3 item 4)

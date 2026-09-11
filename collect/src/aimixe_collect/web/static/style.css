@@ -257,7 +257,11 @@ h2.section { font-family: var(--serif); font-weight: 400; font-size: 30px; lette
 .bar-track { height: 3px; background: var(--track); border-radius: 2px; overflow: hidden; }
 .bar-fill { height: 100%; background: var(--green); transition: width .4s; }
 .xfer-stats { color: var(--muted); font-family: var(--mono); font-size: 12px; white-space: nowrap; }
+.jobs { display: flex; flex-direction: column; gap: 28px; }
+.jobs:empty { display: none; }
 .job { display: flex; flex-direction: column; gap: 12px; }
+.job-result:empty { display: none; }
+.job-result { display: flex; flex-direction: column; gap: 20px; padding-top: 8px; }
 .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--line-3); border-top-color: var(--green); border-radius: 50%; animation: spin .8s linear infinite; vertical-align: -2px; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .status-stored { color: var(--green); } .status-duplicate_linked { color: var(--muted); } .status-uncertain_review { color: var(--amber-ink); }
