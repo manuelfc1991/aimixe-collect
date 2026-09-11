@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aimixe-collect"
+version = "0.1.0"
+description = "AImixE Data Collection Module — terminal-first, UI-ready language resource collection"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+aimixe-collect = "aimixe_collect.cli.main:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"aimixe_collect.data" = ["*.tab", "*.txt", "*.csv", "*.tsv", "*.md", "*.json", "*.toml"]
+"aimixe_collect.db" = ["*.sql"]
+"aimixe_collect.web" = ["static/*"]

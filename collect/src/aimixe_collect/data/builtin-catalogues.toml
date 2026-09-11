@@ -1,0 +1,93 @@
+# Built-in catalogue providers (specification §4.1). Data, not code: a reference site that
+# changes its address is fixed here. User providers live in ~/.aimixe/catalogues/*.toml with
+# the same shape and are added with `aimixe collect catalogue add`.
+#
+# kind:
+#   lookup      build a URL from the profile and hand it to the user; nothing is fetched.
+#               Used honestly for sites without a machine-readable search.
+#   api_json    GET `url`, read JSON, map fields (dotted paths; `[]` maps over a list).
+#   html_links  GET `url`, collect links matching `link_pattern`.
+#   python      a built-in class in catalogues/builtin/ (internet_archive, dspace, glottolog).
+#
+# Templates: {name} (URL-encoded profile name) {code} (ISO 639-3) {q} (current query, encoded)
+
+[[catalogue]]
+name = "glottolog"
+kind = "python"
+class = "glottolog"
+what = "classification, dialect tree and bibliography pointer for the ISO code"
+
+[[catalogue]]
+name = "zenodo"
+kind = "api_json"
+url = "https://zenodo.org/api/records?q={q}&size=25"
+items = "hits.hits"
+what = "open research repository: papers, datasets, recordings"
+asks_by = "name"
+max_queries = 4
+licence_note = "licence per record (metadata.license.id)"
+[catalogue.fields]
+title = "metadata.title"
+url = "links.self_html"
+download = "files[].links.self"
+download_size = "files[].size"
+description = "metadata.description"
+date = "metadata.publication_date"
+licence = "metadata.license.id"
+types = "metadata.resource_type.type"
+language = "metadata.language"
+[catalogue.metadata]
+doi = "doi"
+creators = "metadata.creators[].name"
+keywords = "metadata.keywords"
+
+[[catalogue]]
+name = "internet_archive"
+kind = "python"
+class = "internet_archive"
+what = "Internet Archive items: books, recordings, films, datasets"
+max_files_per_record = 5
+
+[[catalogue]]
+name = "kaipuleohone"
+kind = "python"
+class = "dspace"
+base = "https://scholarspace.manoa.hawaii.edu"
+what = "Kaipuleohone (University of Hawaiʻi digital language archive) and LD&C publications"
+max_files_per_record = 5
+
+[[catalogue]]
+name = "olac"
+kind = "lookup"
+url = "http://www.language-archives.org/language/{code}"
+asks_by = "code"
+needs_code = true
+what = "Open Language Archives index — what participating archives hold for this code"
+licence_note = "OLAC only points at archives; each sets its own terms"
+
+[[catalogue]]
+name = "elar"
+kind = "lookup"
+url = "https://www.elararchive.org/?s={q}"
+asks_by = "name"
+max_queries = 2
+what = "Endangered Languages Archive deposits (site search; deposits need registration to access)"
+licence_note = "ELAR access protocols apply per deposit"
+
+[[catalogue]]
+name = "paradisec"
+kind = "lookup"
+url = "https://catalog.paradisec.org.au/items/search?language_code={code}"
+asks_by = "code"
+needs_code = true
+what = "PARADISEC catalogue (blocks automated clients; open in a browser)"
+licence_note = "access conditions per collection"
+
+[[catalogue]]
+name = "pangloss"
+kind = "lookup"
+url = "https://pangloss.cnrs.fr/?lang=en"
+asks_by = "name"
+max_queries = 1
+what = "Pangloss Collection (LACITO/CNRS) — browse the language list for annotated recordings"
+licence_note = "CC BY-NC-SA for most corpora"

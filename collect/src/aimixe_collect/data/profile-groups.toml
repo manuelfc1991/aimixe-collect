@@ -1,0 +1,253 @@
+# Language-profile question groups (specification §2.7).
+# Generated from aimixe_collect/profile/schema.py — the CLI and a future UI render from the same table.
+
+[[group]]
+name = "identity"
+title = "Names and Classification"
+progress_label = "Names and classification"
+
+[[group.field]]
+name = "family"
+label = "Family"
+prompt = "Language family:"
+kind = "text"
+multi = false
+help = "e.g. Sino-Tibetan, Austronesian"
+feeds = ["query", "relevance"]
+
+[[group.field]]
+name = "alternate_names"
+label = "Alternative names"
+prompt = "Alternative names:"
+kind = "list"
+multi = true
+help = "Separate several names with commas"
+feeds = ["query", "relevance", "offline"]
+
+[[group.field]]
+name = "exonyms"
+label = "Exonyms"
+prompt = "Exonyms / names used by outsiders:"
+kind = "list"
+multi = true
+feeds = ["query", "relevance", "offline"]
+
+[[group.field]]
+name = "parent"
+label = "Parent language/group"
+prompt = "Parent language/group, if applicable:"
+kind = "parent"
+multi = false
+help = "May be a parent language, dialect group, macrolanguage, subgroup or broader grouping. Leave blank if not known."
+suggested = ["parent language", "dialect group", "macrolanguage", "subgroup", "broader linguistic grouping"]
+feeds = ["query", "relevance"]
+
+[[group.field]]
+name = "scripts"
+label = "Scripts"
+prompt = "Scripts used:"
+kind = "scripts"
+multi = true
+help = "Script names or ISO 15924 codes, e.g. Latin, Myanmar, Deva"
+feeds = ["query", "relevance", "classify"]
+
+[[group.field]]
+name = "notes"
+label = "Notes"
+prompt = "Additional notes:"
+kind = "text"
+multi = false
+
+[[group]]
+name = "orthography_location"
+title = "Orthography and Location"
+progress_label = "Location and varieties"
+
+[[group.field]]
+name = "orthography_status"
+label = "Orthography status"
+prompt = "Orthography status:"
+kind = "choice"
+multi = false
+help = "Pick a value or describe it in your own words"
+suggested = ["standardized", "partially_standardized", "community_orthography", "experimental", "multiple_orthographies", "unwritten", "unknown"]
+feeds = ["classify"]
+
+[[group.field]]
+name = "literacy"
+label = "Literacy"
+prompt = "Literacy information:"
+kind = "text"
+multi = false
+
+[[group.field]]
+name = "varieties"
+label = "Varieties"
+prompt = "Known dialects / varieties:"
+kind = "list"
+multi = true
+feeds = ["query", "relevance", "offline"]
+
+[[group.field]]
+name = "region"
+label = "Region"
+prompt = "Primary region:"
+kind = "text"
+multi = false
+feeds = ["query", "relevance"]
+
+[[group.field]]
+name = "places"
+label = "Places"
+prompt = "Specific places where the language is spoken:"
+kind = "places"
+multi = true
+help = "One place per entry: name, type (village/district/...), region, country"
+suggested = ["village", "town", "city", "district", "state", "province", "region", "country"]
+feeds = ["query", "relevance", "offline"]
+
+[[group.field]]
+name = "other_languages"
+label = "Other languages"
+prompt = "Other languages commonly used by the community:"
+kind = "tagged_list"
+multi = true
+help = "Lingua francas, regional/national languages, neighbouring languages, languages of education, religion or trade"
+suggested = ["lingua franca", "regional", "national", "neighbouring", "education", "religion", "trade"]
+feeds = ["relevance"]
+
+[[group]]
+name = "resources"
+title = "Existing Resources"
+progress_label = "Resources"
+
+[[group.field]]
+name = "summary"
+label = "Resource summary"
+prompt = "Are any language resources already known?"
+kind = "text"
+multi = false
+feeds = ["query"]
+
+[[group.field]]
+name = "written"
+label = "Written materials"
+prompt = "Are written materials available?"
+kind = "state"
+multi = false
+suggested = ["yes", "no", "unknown", "limited", "reported", "historical"]
+feeds = ["query"]
+
+[[group.field]]
+name = "recordings"
+label = "Recordings"
+prompt = "Are audio/video recordings available?"
+kind = "state"
+multi = false
+suggested = ["yes", "no", "unknown", "limited", "reported", "historical"]
+feeds = ["query"]
+
+[[group.field]]
+name = "studies"
+label = "Linguistic studies"
+prompt = "Are linguistic studies available?"
+kind = "state"
+multi = false
+suggested = ["yes", "no", "unknown", "limited", "reported", "historical"]
+feeds = ["query"]
+
+[[group.field]]
+name = "digital"
+label = "Digital resources"
+prompt = "Are digital resources available?"
+kind = "state"
+multi = false
+suggested = ["yes", "no", "unknown", "limited", "reported", "historical"]
+feeds = ["query"]
+
+[[group.field]]
+name = "speakers"
+label = "Speaker estimate"
+prompt = "Estimated number of speakers:"
+kind = "speakers"
+multi = false
+help = "A number, an approximation (~8500) or a range (8000-9000)"
+
+[[group]]
+name = "community_status"
+title = "Speaker and Community Information"
+progress_label = "Community"
+
+[[group.field]]
+name = "speakers_basis"
+label = "Speaker estimate basis"
+prompt = "What is the basis of the speaker estimate?"
+kind = "basis"
+multi = false
+help = "Type, year and source of the estimate"
+suggested = ["census", "academic study", "community estimate", "government report", "fieldwork", "Ethnologue", "Glottolog", "unknown"]
+
+[[group.field]]
+name = "transmission"
+label = "Transmission"
+prompt = "Is the language being transmitted to children?"
+kind = "choice"
+multi = false
+suggested = ["strong", "ongoing", "declining", "limited", "not_transmitted", "unknown"]
+
+[[group.field]]
+name = "age_spread"
+label = "Age spread"
+prompt = "Which age groups currently speak the language?"
+kind = "age_spread"
+multi = false
+
+[[group.field]]
+name = "used"
+label = "Domains of use"
+prompt = "Where/domains is the language actively used?"
+kind = "list"
+multi = true
+suggested = ["home", "community", "education", "religion", "ceremonies", "media", "government", "market", "workplace", "literature", "digital communication"]
+feeds = ["query"]
+
+[[group.field]]
+name = "displaced"
+label = "Displacement"
+prompt = "Has the community or language population been displaced?"
+kind = "choice"
+multi = false
+suggested = ["yes", "no", "partial", "historical", "unknown"]
+feeds = ["query"]
+
+[[group.field]]
+name = "community"
+label = "Community information"
+prompt = "Additional community information:"
+kind = "community"
+multi = true
+suggested = ["community names", "self-identification", "organizations", "language committees", "cultural organizations", "educational initiatives", "documentation initiatives", "relevant institutions"]
+feeds = ["query", "relevance", "offline"]
+
+[[group]]
+name = "translation_publication"
+title = "Translation and Publication"
+progress_label = "Translation and publication"
+
+[[group.field]]
+name = "translation"
+label = "Translations"
+prompt = "Are translations available in this language?"
+kind = "entries"
+multi = true
+suggested = ["Bible translation", "religious translation", "government translation", "educational translation", "translated literature", "health materials", "dictionary", "translated website", "subtitles", "parallel text"]
+feeds = ["query", "relevance", "offline"]
+
+[[group.field]]
+name = "publication"
+label = "Publications"
+prompt = "Are published materials available?"
+kind = "entries"
+multi = true
+suggested = ["book", "primer", "textbook", "newspaper", "magazine", "community publication", "academic publication", "dictionary", "grammar book"]
+feeds = ["query", "relevance", "offline"]

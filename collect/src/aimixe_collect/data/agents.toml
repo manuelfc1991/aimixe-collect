@@ -1,0 +1,55 @@
+# Command-line model tools the CliAgent knows how to call (specification §20).
+# Data, not code. Pick one with `provider = "<name>"` under [agent] in config.toml, or
+# define your own there:
+#
+#   [agent]
+#   provider = "my_tool"
+#   [agent.cli]
+#   command = "my_tool --quiet {prompt}"      # {prompt} is replaced; without it the prompt goes to stdin
+#   timeout = 180
+#
+# `rule_based` (the default) needs no tool and never leaves the machine.
+# `local` says whether the prompt stays on this machine. The prompt contains the language
+# profile and page text; nothing else.
+
+[[agent]]
+name = "claude"
+command = "claude -p {prompt}"
+local = false
+what = "Anthropic's Claude Code CLI"
+
+[[agent]]
+name = "codex"
+command = "codex exec --skip-git-repo-check {prompt}"
+local = false
+what = "OpenAI Codex CLI"
+
+[[agent]]
+name = "gemini"
+command = "gemini -p {prompt}"
+local = false
+what = "Google Gemini CLI"
+
+[[agent]]
+name = "agy"
+command = "agy -p {prompt}"
+local = false
+what = "Antigravity CLI"
+
+[[agent]]
+name = "qwen"
+command = "qwen -p {prompt}"
+local = false
+what = "Qwen Code CLI"
+
+[[agent]]
+name = "ollama"
+command = "ollama run llama3.2"
+local = true
+what = "Ollama, local model (prompt on stdin); set the model name to what you have pulled"
+
+[[agent]]
+name = "llm"
+command = "llm {prompt}"
+local = false
+what = "Simon Willison's llm CLI, any configured model"

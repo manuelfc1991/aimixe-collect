@@ -1,0 +1,37 @@
+{
+  "built": "2026-09-10T04:09:01+00:00",
+  "languages": 8083,
+  "with_family": 7859,
+  "with_dialects": 3026,
+  "with_names": 6997,
+  "with_med": 7802,
+  "with_aes": 7619,
+  "with_refs": 7802,
+  "with_likely_script": 6984,
+  "sources": [
+    {
+      "name": "Glottolog",
+      "version": "5.3",
+      "licence": "CC-BY-4.0",
+      "url": "https://github.com/glottolog/glottolog-cldf",
+      "file": "cldf/languages.csv",
+      "cite": "Hammarström, Harald & Forkel, Robert & Haspelmath, Martin & Bank, Sebastian. 2024. Glottolog 5.3. Leipzig: Max Planck Institute for Evolutionary Anthropology."
+    },
+    {
+      "name": "Unicode CLDR",
+      "version": "main",
+      "licence": "Unicode-3.0",
+      "url": "https://github.com/unicode-org/cldr",
+      "file": "common/supplemental/likelySubtags.xml",
+      "cite": "Unicode Common Locale Data Repository. likelySubtags. Used only for the script a language would likely be written in, which is not a claim that it is written."
+    },
+    {
+      "name": "ISO 639-3",
+      "version": "2026",
+      "licence": "free to download and use",
+      "url": "https://iso639-3.sil.org",
+      "file": "iso-639-3.tab",
+      "cite": "SIL International. ISO 639-3 code tables."
+    }
+  ]
+}

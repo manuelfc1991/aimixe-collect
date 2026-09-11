@@ -1,0 +1,19 @@
+#!/bin/sh
+# AImixE launcher. Module groups: collect.
+#   aimixe collect [...]
+set -e
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+if [ "$#" -eq 0 ]; then
+  echo "usage: aimixe collect [language] [options]" >&2
+  echo "       aimixe collect import <path> | history [id] | review | resume <id>" >&2
+  exit 40
+fi
+GROUP="$1"; shift
+case "$GROUP" in
+  collect)
+    PYTHONPATH="$ROOT/src${PYTHONPATH:+:$PYTHONPATH}" exec python3 -m aimixe_collect "$@" ;;
+  -h|--help|help)
+    echo "usage: aimixe collect [language] [options]"; exit 0 ;;
+  *)
+    echo "aimixe: unknown module group '$GROUP' (available: collect)" >&2; exit 40 ;;
+esac

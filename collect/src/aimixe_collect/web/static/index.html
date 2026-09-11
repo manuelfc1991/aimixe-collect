@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AImixE Data Collection</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand">AImixE <span>Data Collection</span></div>
+  <div class="lang-switch">
+    <label>Language
+      <select id="lang-select"><option value="">— choose —</option></select>
+    </label>
+    <button id="btn-new-language" class="ghost">New / find language</button>
+  </div>
+  <div class="home" id="home-path"></div>
+</header>
+
+<div class="layout">
+  <nav id="nav" class="nav hidden">
+    <div class="nav-lang" id="nav-lang"></div>
+    <button data-view="profile">Language Profile</button>
+    <div class="nav-group">Online Collection</div>
+    <button data-view="catalogue" class="sub">Catalogue Search</button>
+    <button data-view="agent" class="sub">Agent Search</button>
+    <button data-view="offline">Offline Collection</button>
+    <button data-view="import">Import Files / Folder</button>
+    <button data-view="collection">View Existing Collection</button>
+    <button data-view="review">Review Queue <span id="review-badge" class="badge hidden"></span></button>
+    <button data-view="history">Collection History</button>
+    <button data-view="catalogues">Catalogues</button>
+  </nav>
+
+  <main id="main">
+    <section id="view-find" class="view">
+      <h1>Enter language name or ISO 639-3 code</h1>
+      <form id="find-form" class="row">
+        <input id="find-input" placeholder="Tangsa · nst · Nocte · njb" autofocus>
+        <button type="submit">Search</button>
+      </form>
+      <div id="find-result"></div>
+    </section>
+
+    <section id="view-profile" class="view hidden"></section>
+    <section id="view-catalogue" class="view hidden"></section>
+    <section id="view-agent" class="view hidden"></section>
+    <section id="view-offline" class="view hidden"></section>
+    <section id="view-import" class="view hidden"></section>
+    <section id="view-collection" class="view hidden"></section>
+    <section id="view-review" class="view hidden"></section>
+    <section id="view-history" class="view hidden"></section>
+    <section id="view-catalogues" class="view hidden"></section>
+  </main>
+</div>
+
+<div id="toast" class="toast hidden"></div>
+<script src="app.js"></script>
+</body>
+</html>
