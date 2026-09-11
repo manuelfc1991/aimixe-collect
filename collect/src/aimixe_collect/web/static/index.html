@@ -8,12 +8,14 @@
 </head>
 <body>
 <header class="top">
-  <div class="brand">AImixE <span>Data Collection</span></div>
+  <div class="brand">AImixE <span>Data Collection</span> <small id="version" class="muted"></small></div>
   <div class="lang-switch">
     <label>Language
       <select id="lang-select"><option value="">— choose —</option></select>
     </label>
-    <button id="btn-new-language" class="ghost">New / find language</button>
+    <button id="btn-home" class="ghost">Home</button>
+    <button id="btn-new-language" class="ghost">New language</button>
+    <button id="btn-settings" class="ghost">Settings</button>
   </div>
   <div class="home" id="home-path"></div>
 </header>
@@ -34,7 +36,9 @@
   </nav>
 
   <main id="main">
-    <section id="view-find" class="view">
+    <section id="view-home" class="view"></section>
+    <section id="view-settings" class="view hidden"></section>
+    <section id="view-find" class="view hidden">
       <h1>Enter language name or ISO 639-3 code</h1>
       <form id="find-form" class="row">
         <input id="find-input" placeholder="Tangsa · nst · Nocte · njb" autofocus>

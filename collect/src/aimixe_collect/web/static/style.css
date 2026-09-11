@@ -75,6 +75,17 @@ tr.clickable:hover td { background: #f3f7f3; }
 .bar { height: 8px; background: var(--soft); border-radius: 4px; overflow: hidden; }
 .bar-fill { height: 100%; background: var(--accent); transition: width .4s; }
 .xfer-stats { color: var(--muted); font-family: var(--mono); font-size: .78rem; }
+.lang-list { display: flex; flex-direction: column; gap: .5rem; margin: .6rem 0 1rem; }
+.lang-card { display: grid; grid-template-columns: 2rem 1fr auto; gap: .8rem; align-items: center; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: .7rem 1rem; }
+.lang-idx { color: var(--accent); font-weight: 700; font-size: 1.1rem; text-align: center; }
+.lang-main .hint { color: var(--muted); font-size: .9rem; margin-top: .15rem; }
+.lang-actions { display: flex; gap: .4rem; }
+.actions-row { margin-top: .4rem; }
+.warn { color: var(--warn); }
+.ok { color: var(--ok); }
+.summary-groups .sg-row { display: grid; grid-template-columns: 13rem 1fr; gap: .8rem; padding: .3rem 0; border-top: 1px solid var(--line); }
+.summary-groups .sg-row:first-child { border-top: 0; }
+.summary-groups .sg-name { color: var(--muted); font-weight: 600; }
 .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: .6rem; margin: .6rem 0; }
 .summary div { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: .5rem .7rem; }
 .summary b { display: block; font-size: 1.3rem; }

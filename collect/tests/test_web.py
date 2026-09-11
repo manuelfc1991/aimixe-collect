@@ -91,6 +91,14 @@ class ApiTests(unittest.TestCase):
             api.handle("DELETE", "/api/catalogues/uni", {}, {})
             with self.assertRaises(ApiError):
                 api.handle("DELETE", "/api/catalogues/uni", {}, {})
+            # home page data: state, next step, last collection
+            home = api.handle("GET", "/api/home", {}, {})
+            card = home["languages"][0]
+            self.assertEqual(card["id"], "nst")
+            self.assertGreaterEqual(card["resources"], 2)
+            self.assertEqual(card["last_session"]["mode"], "Offline Collection")
+            self.assertTrue(card["next_step"])
+            self.assertIn("version", api.handle("GET", "/api/status", {}, {}))
             # agent plan (no network; planning only)
             plan = api.handle("GET", "/api/languages/nst/agent/plan", {}, {})
             self.assertTrue(plan["queries"])

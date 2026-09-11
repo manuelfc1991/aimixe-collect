@@ -4,7 +4,7 @@
   const $ = (sel, el = document) => el.querySelector(sel);
   const $$ = (sel, el = document) => Array.from(el.querySelectorAll(sel));
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-  const state = { lang: null, status: null, schema: null, lastCatalogueJob: null, view: "find" };
+  const state = { lang: null, status: null, schema: null, lastCatalogueJob: null, view: "home" };
 
   // ------------------------------------------------------------------ api
   async function api(method, path, body) {
@@ -48,16 +48,19 @@
     $$(".view").forEach((v) => v.classList.add("hidden"));
     $(`#view-${view}`).classList.remove("hidden");
     $$("#nav button").forEach((b) => b.classList.toggle("active", b.dataset.view === view));
-    const render = { profile: renderProfile, catalogue: renderCatalogue, agent: renderAgent, offline: renderOffline,
+    const render = { home: renderHome, settings: renderSettings, profile: renderProfile, catalogue: renderCatalogue, agent: renderAgent, offline: renderOffline,
       import: renderImport, collection: renderCollection, review: renderReview, history: renderHistory, catalogues: renderCatalogues }[view];
     if (render) render().catch(fail);
   }
   $$("#nav button").forEach((b) => b.addEventListener("click", () => show(b.dataset.view)));
   $("#btn-new-language").addEventListener("click", () => { state.lang = null; $("#nav").classList.add("hidden"); $("#lang-select").value = ""; show("find"); });
+  $("#btn-home").addEventListener("click", () => { state.lang = null; $("#nav").classList.add("hidden"); $("#lang-select").value = ""; show("home"); });
+  $("#btn-settings").addEventListener("click", () => show("settings"));
 
   async function refreshStatus() {
     state.status = await get("/api/status");
     $("#home-path").textContent = state.status.home;
+    $("#version").textContent = "v" + (state.status.version || "");
     const sel = $("#lang-select");
     const current = sel.value;
     sel.innerHTML = '<option value="">— choose —</option>' + state.status.languages.map((l) => `<option value="${esc(l.id)}">${esc(l.name)} [${esc(l.iso639_3 || l.id)}]</option>`).join("");
@@ -75,6 +78,71 @@
     $("#nav-lang").innerHTML = `${esc(data.profile.name)} <small>${esc(data.profile.iso639_3 ? "ISO 639-3 " + data.profile.iso639_3 : "local identifier " + data.profile.id)} · ${data.resource_count} resource(s)</small>`;
     $("#lang-select").value = id;
     show("profile");
+  }
+
+  // ------------------------------------------------------------------ home
+  const when = (iso) => { if (!iso) return ""; const t = new Date(iso); const d = Math.floor((new Date().setHours(0,0,0,0) - new Date(t).setHours(0,0,0,0)) / 86400000); return d === 0 ? `today ${t.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : d === 1 ? "yesterday" : d < 7 ? `${d} days ago` : t.toLocaleDateString(); };
+  async function renderHome() {
+    const el = $("#view-home");
+    const d = await get("/api/home");
+    if (!d.languages.length) {
+      el.innerHTML = `<h1>Welcome</h1><p class="muted">AImixE collects language resources three ways: online (catalogues and an agent searching the web), offline (scanning folders on this machine) and by direct import. Every file is hashed, classified, stored unchanged and indexed with where it came from. Start by naming a language; the profile you build for it steers every search.</p><p><button id="home-new">New language</button></p>`;
+      $("#home-new").addEventListener("click", () => show("find"));
+      return;
+    }
+    el.innerHTML = `<h1>Languages</h1>
+      <div class="lang-list">${d.languages.map((l, i) => `<div class="lang-card" data-id="${esc(l.id)}">
+        <div class="lang-idx">${i + 1}</div>
+        <div class="lang-main"><div><b>${esc(l.name)}</b> <span class="mono muted">${esc(l.iso639_3 || l.id)}</span>${l.identifier_type === "local" ? ' <span class="tag uncertain">local id</span>' : ""}</div>
+          <div class="muted">${l.resources} resource(s)${l.pending_review ? ` · <span class="warn">${l.pending_review} to review</span>` : ""}${l.last_session ? ` · last: ${esc(when(l.last_session.started_at))} · ${esc(l.last_session.mode)}` : " · never collected"}</div>
+          <div class="hint">→ ${esc(l.next_step)}</div></div>
+        <div class="lang-actions"><button class="small" data-open="${esc(l.id)}">Open</button>${l.pending_review ? `<button class="small ghost" data-review="${esc(l.id)}">Review</button>` : ""}</div>
+      </div>`).join("")}</div>
+      <div class="row actions-row">
+        <button id="home-new">New language</button>
+        <button id="home-review" class="ghost" ${d.pending_review ? "" : "disabled"}>Review everything waiting${d.pending_review ? ` (${d.pending_review})` : ""}</button>
+        <button id="home-history" class="ghost">Collection history</button>
+        <button id="home-settings" class="ghost">Settings</button>
+      </div>`;
+    $$("button[data-open]", el).forEach((b) => b.addEventListener("click", () => openLanguage(b.dataset.open)));
+    $$("button[data-review]", el).forEach((b) => b.addEventListener("click", async () => { await openLanguage(b.dataset.review); show("review"); }));
+    $$(".lang-card", el).forEach((c) => c.addEventListener("dblclick", () => openLanguage(c.dataset.id)));
+    $("#home-new").addEventListener("click", () => show("find"));
+    $("#home-review").addEventListener("click", () => { state.lang = null; show("review"); });
+    $("#home-history").addEventListener("click", () => { state.lang = null; show("history"); });
+    $("#home-settings").addEventListener("click", () => show("settings"));
+  }
+
+  // ------------------------------------------------------------------ settings
+  async function renderSettings() {
+    const el = $("#view-settings");
+    const [prov, eng, cats] = await Promise.all([get("/api/agent/provider"), get("/api/agent/engines"), get("/api/catalogues")]);
+    el.innerHTML = `<h1>Settings</h1>
+      <div class="card"><h2>Agent provider</h2>
+        <p class="row"><select id="set-provider">${prov.choices.map((c) => `<option value="${esc(c.name)}" ${c.current ? "selected" : ""} ${c.installed ? "" : "disabled"}>${esc(c.name)} — ${esc(c.what)}${c.installed ? "" : " (not installed)"}</option>`).join("")}</select></p>
+        <p class="muted">rule_based needs no model and never leaves the machine. A model provider receives the language profile and the text of visited pages. Saved to config.toml.</p></div>
+      <div class="card"><h2>Search engines <span class="muted">(${eng.engines.filter((e) => e.enabled && e.available).length} usable of ${eng.engines.length})</span></h2>
+        <table><tr><th></th><th>name</th><th>kind</th><th>state</th><th>region</th><th>what</th><th></th></tr>
+        ${eng.engines.map((e) => `<tr><td><input type="checkbox" class="eng" value="${esc(e.name)}" ${e.enabled ? "checked" : ""}></td><td>${esc(e.name)}</td><td>${esc(e.kind)}</td><td>${e.available ? "" : `<span class="tag uncertain" title="${esc(e.why)}">needs key</span>`}${e.verified ? "" : ' <span class="tag">unverified</span>'}</td><td class="muted">${esc(e.region)}</td><td>${esc(e.what)}</td><td><button class="small ghost" data-test="${esc(e.name)}">test</button>${e.source !== "builtin" ? ` <button class="small danger" data-rm="${esc(e.name)}">remove</button>` : ""}</td></tr>`).join("")}</table>
+        <div class="row"><button id="set-engines" class="small">Save selection</button><span class="muted">Ticked engines are asked in the order shown. Keys go under [agent.search_keys] in config.toml.</span></div>
+        <pre id="engine-test" class="log hidden"></pre>
+        <h3>Add an engine</h3>
+        <form id="engine-add" class="row"><input name="name" placeholder="name" required><select name="kind"><option value="json">json API</option><option value="rss">rss / atom</option><option value="html">html page</option></select><input name="url" placeholder="URL template with {q} ({key} {cx} {lang})" size="48" required><input name="items" placeholder="json: result list path (results)"><input name="fields" placeholder="json: url=url, title=title, snippet=content" size="40"><input name="link_pattern" placeholder="html: regex, group 1 = URL"><input name="what" placeholder="description" size="30"><label><input type="checkbox" name="needs_key"> needs key</label><button class="small">Add engine</button></form></div>
+      <div class="card"><h2>Catalogues</h2>
+        <table><tr><th>name</th><th>kind</th><th>enabled</th><th>what</th><th></th></tr>${cats.catalogues.map((c) => `<tr><td>${esc(c.name)}</td><td>${esc(c.kind)}</td><td>${c.enabled ? "yes" : "no"}</td><td>${esc(c.what)}</td><td>${c.enabled ? `<button class="small danger" data-cat-rm="${esc(c.name)}">${c.source === "builtin" ? "disable" : "remove"}</button>` : ""}</td></tr>`).join("")}</table>
+        <p><button id="set-catalogues" class="ghost small">Add a catalogue…</button></p></div>`;
+    $("#set-provider").addEventListener("change", async (e) => { try { await post("/api/agent/provider", { provider: e.target.value }); toast(`Agent provider: ${e.target.value}`); refreshStatus(); } catch (err) { fail(err); } });
+    $("#set-engines").addEventListener("click", async () => { const names = $$("input.eng:checked", el).map((i) => i.value); try { await post("/api/agent/engines", { enabled: names }); toast("Search engines: " + (names.join(", ") || "none")); renderSettings(); } catch (err) { fail(err); } });
+    $$("button[data-test]", el).forEach((b) => b.addEventListener("click", async () => { const pre = $("#engine-test"); pre.classList.remove("hidden"); pre.textContent = `testing ${b.dataset.test} …`; try { const r = await get(`/api/agent/engines/${encodeURIComponent(b.dataset.test)}/test?q=language%20documentation`); pre.textContent = r.hits.length ? r.hits.map((h) => `${h.title || "(no title)"}\n    ${h.url}`).join("\n") : "no hits"; } catch (err) { pre.textContent = err.message; } }));
+    $$("button[data-rm]", el).forEach((b) => b.addEventListener("click", async () => { try { const r = await del(`/api/agent/engines/${encodeURIComponent(b.dataset.rm)}`); toast(r.message); renderSettings(); } catch (err) { fail(err); } }));
+    $$("button[data-cat-rm]", el).forEach((b) => b.addEventListener("click", async () => { try { const r = await del(`/api/catalogues/${encodeURIComponent(b.dataset.catRm)}`); toast(r.message); renderSettings(); } catch (err) { fail(err); } }));
+    $("#set-catalogues").addEventListener("click", () => show("catalogues"));
+    $("#engine-add").addEventListener("submit", async (ev) => {
+      ev.preventDefault(); const fd = new FormData(ev.target); const cfg = {}; fd.forEach((v, k) => { if (String(v).trim()) cfg[k] = String(v).trim(); });
+      if (cfg.needs_key) cfg.needs_key = true;
+      if (cfg.fields) { const f = {}; cfg.fields.split(",").forEach((p) => { const [k, v] = p.split("=").map((s) => s.trim()); if (k && v) f[k] = v; }); cfg.fields = f; }
+      try { await post("/api/agent/engines", { engine: cfg }); toast("Engine saved"); renderSettings(); } catch (err) { fail(err); }
+    });
   }
 
   // ------------------------------------------------------------------ find language (§1)
@@ -131,7 +199,13 @@
       <h1>Language Profile — ${esc(p.name)} <span class="muted">[${esc(p.iso639_3 || p.id)}]</span></h1>
       <ul class="progress"><li class="done">✓ Basic identification</li>
         ${schema.groups.map((g) => `<li class="${st.groups[g.name]}">${st.groups[g.name] === "done" ? "✓" : "○"} ${esc(g.progress_label)}</li>`).join("")}</ul>
-      <p class="muted">${st.known.length} field(s) known, ${st.to_ask.length} missing or uncertain. Values from the bundled tables are marked <em>local_database</em>; your answers are marked <em>user</em>. Nothing is overwritten: sources that disagree are kept side by side.</p>
+      <div class="card summary-groups">${schema.groups.map((g) => {
+        const lbl = (gn, f) => g.fields.find((x) => x.name === f)?.label || f;
+        const known = st.known.filter(([gn, f]) => gn === g.name && !uncertain.has(key(gn, f)) && !contradictory.has(key(gn, f))).map(([gn, f]) => lbl(gn, f));
+        const shaky = st.known.filter(([gn, f]) => gn === g.name && (uncertain.has(key(gn, f)) || contradictory.has(key(gn, f)))).map(([gn, f]) => lbl(gn, f));
+        const missing = st.to_ask.filter(([gn, f]) => gn === g.name && !uncertain.has(key(gn, f)) && !contradictory.has(key(gn, f))).map(([gn, f]) => lbl(gn, f));
+        return `<div class="sg-row"><div class="sg-name">${esc(g.progress_label)}</div><div>${known.length ? `<span class="ok">✓</span> ${esc(known.join(" · "))}` : ""}${shaky.length ? `<br><span class="warn">?</span> ${esc(shaky.join(" · "))} <span class="muted">(uncertain — will be asked again)</span>` : ""}${missing.length ? `<br><span class="muted">– ${esc(missing.join(" · "))}</span>` : ""}</div></div>`; }).join("")}
+      <p class="muted">${st.known.length} known · ${st.to_ask.length} to fill. Values from the bundled tables are marked <em>local_database</em>; your answers <em>user</em>. Nothing is overwritten: sources that disagree are kept side by side.</p></div>
       <div class="card row"><button id="profile-propose">Ask catalogues and the agent to propose values</button><span class="muted">Glottolog plus a short read of pages about the language; nothing is downloaded; each fact goes to the review queue.</span></div>
       <pre id="propose-log" class="log hidden"></pre>
       ${schema.groups.map((g) => `
@@ -291,7 +365,8 @@
         ${plan.agent.available ? "" : `<span class="tag uncertain">not available (${esc(plan.agent.why)}); the rule-based agent is used</span>`}
         <span class="muted">· Web search backends: ${plan.backends.map(esc).join(", ") || "<em>none configured</em>"}</span></p>
       <p class="muted">A model provider receives the language profile and the text of visited pages. The choice is saved to config.toml.</p>
-      <details><summary>Search engines (${eng.engines.filter((e) => e.enabled && e.available).length} usable of ${eng.engines.length})</summary>
+      <p class="muted">Search engines: ${eng.engines.filter((e) => e.enabled && e.available).map((e) => esc(e.name)).join(", ") || "<b>none usable</b>"} · <a href="#" id="agent-to-settings">change in Settings</a></p>
+      <details class="hidden"><summary>Search engines</summary>
         <div class="checks" id="engine-checks">${eng.engines.map((e) => `<label title="${esc(e.what)}${e.region ? " — " + esc(e.region) : ""}"><input type="checkbox" value="${esc(e.name)}" ${e.enabled ? "checked" : ""}> ${esc(e.name)} <span class="tag">${esc(e.kind)}</span>${e.available ? "" : ` <span class="tag uncertain" title="${esc(e.why)}">needs key</span>`}${e.verified ? "" : ` <span class="tag">unverified</span>`} <button class="small ghost" data-test="${esc(e.name)}">test</button>${e.source !== "builtin" ? ` <button class="small danger" data-rm="${esc(e.name)}">remove</button>` : ""}</label>`).join("")}</div>
         <div class="row"><button id="engines-save" class="small">Save selection</button><span class="muted">Engines are asked in the order shown. Add your own (SearXNG, Baidu via SerpAPI, a keyed API …) with <code>aimixe collect search add</code>, or below.</span></div>
         <pre id="engine-test" class="log hidden"></pre>
@@ -302,6 +377,7 @@
       <table id="agent-queries"><tr><th></th><th>basis</th><th>query</th><th>why</th></tr>${plan.queries.map((q, i) => `<tr><td><input type="checkbox" checked data-i="${i}"></td><td>${esc(q.basis)}</td><td>${esc(q.text)}</td><td class="muted">${esc(q.rationale || "")}</td></tr>`).join("")}</table>
       <div class="row"><input id="agent-extra" placeholder="your own queries, separated by ;" size="60"><button id="agent-run" ${plan.backends.length ? "" : "disabled"}>Run</button></div></div>
       <pre id="agent-log" class="log hidden"></pre><div id="agent-result"></div>`;
+    $("#agent-to-settings").addEventListener("click", (e) => { e.preventDefault(); show("settings"); });
     $("#engines-save").addEventListener("click", async () => {
       const names = $$("#engine-checks input[type=checkbox]:checked", el).map((i) => i.value);
       try { await post("/api/agent/engines", { enabled: names }); toast("Search engines: " + names.join(", ")); renderAgent(); } catch (err) { fail(err); }
@@ -405,10 +481,11 @@
   // ------------------------------------------------------------------ review (§18)
   async function renderReview() {
     const el = $("#view-review");
-    const { items } = await get(`/api/review?language=${encodeURIComponent(state.lang)}`);
-    el.innerHTML = `<h1>Review Queue <span class="muted">${items.length} item(s)</span></h1>
+    const { items } = await get(state.lang ? `/api/review?language=${encodeURIComponent(state.lang)}` : "/api/review");
+    el.innerHTML = `<h1>Review Queue <span class="muted">${items.length} item(s)${state.lang ? "" : " · all languages"}</span></h1>
       <p class="muted">Uncertain resources and language facts proposed by catalogues or the agent. Nothing reaches the canonical profile without an accept here.</p>
       ${items.length ? items.map((it) => `<div class="card review-card" data-id="${it.id}">
+        ${state.lang ? "" : `<div class="muted">${esc(it.language_id)}</div>`}
         ${it.kind === "profile_field" ? `<h3>Possible new language information detected</h3><dl class="kv"><dt>Field</dt><dd>${esc(it.payload.field)}</dd><dt>Value</dt><dd>${esc(fmt(it.payload.value))}</dd>${it.payload.quote ? `<dt>Quote</dt><dd class="quote">${esc(it.payload.quote)}</dd>` : ""}</dl>`
           : `<h3>Uncertain resource</h3><dl class="kv"><dt>Resource</dt><dd>${esc(it.payload.name)}</dd><dt>Relevance</dt><dd>${it.payload.relevance} (${esc(it.payload.band)}) — ${esc((it.payload.reasons || []).join("; "))}</dd></dl>`}
         <p class="muted">Confidence: ${Math.round((it.confidence || 0) * 100)}% · Source: ${/^https?:/.test(it.source_ref || "") ? `<a href="${esc(it.source_ref)}" target="_blank" rel="noopener">${esc(it.source_ref)}</a>` : esc(it.source_ref || "—")}</p>
@@ -425,9 +502,9 @@
   // ------------------------------------------------------------------ history (§17)
   async function renderHistory() {
     const el = $("#view-history");
-    const { sessions } = await get(`/api/history?language=${encodeURIComponent(state.lang)}`);
-    el.innerHTML = `<h1>Collection History</h1>${sessions.length ? `<table><tr><th>session</th><th>mode</th><th>status</th><th>started</th><th>disc</th><th>rel</th><th>down</th><th>dup</th><th>fail</th><th>review</th></tr>
-      ${sessions.map((s) => `<tr class="clickable" data-sid="${esc(s.id)}"><td class="mono">${esc(s.id)}</td><td>${esc(s.mode)}</td><td>${esc(s.status)}</td><td>${esc(s.started_at.slice(0, 19))}</td><td>${s.discovered}</td><td>${s.relevant}</td><td>${s.downloaded}</td><td>${s.duplicates}</td><td>${s.failed}</td><td>${s.pending_review}</td></tr>`).join("")}</table>` : "<p class='muted'>No collection sessions yet.</p>"}<div id="session-detail"></div>`;
+    const { sessions } = await get(state.lang ? `/api/history?language=${encodeURIComponent(state.lang)}` : "/api/history");
+    el.innerHTML = `<h1>Collection History${state.lang ? "" : ' <span class="muted">· all languages</span>'}</h1>${sessions.length ? `<table><tr><th>session</th><th>language</th><th>mode</th><th>status</th><th>started</th><th>disc</th><th>rel</th><th>down</th><th>dup</th><th>fail</th><th>review</th></tr>
+      ${sessions.map((s) => `<tr class="clickable" data-sid="${esc(s.id)}"><td class="mono">${esc(s.id)}</td><td>${esc(s.language_name)} [${esc(s.language_id)}]</td><td>${esc(s.mode)}</td><td>${esc(s.status)}</td><td>${esc(s.started_at.slice(0, 19))}</td><td>${s.discovered}</td><td>${s.relevant}</td><td>${s.downloaded}</td><td>${s.duplicates}</td><td>${s.failed}</td><td>${s.pending_review}</td></tr>`).join("")}</table>` : "<p class='muted'>No collection sessions yet.</p>"}<div id="session-detail"></div>`;
     $$("tr[data-sid]", el).forEach((r) => r.addEventListener("click", async () => {
       const d = await get(`/api/sessions/${encodeURIComponent(r.dataset.sid)}`);
       $("#session-detail").innerHTML = `<div class="card">${summaryHtml(d.session)}<pre class="log">${d.events.map((e) => `${esc(e.ts)}  ${esc(e.level.padEnd(5))}  ${esc(e.message)}`).join("\n")}</pre></div>`;
@@ -464,5 +541,5 @@
   }
 
   // ------------------------------------------------------------------ boot
-  refreshStatus().then(() => show("find")).catch(fail);
+  refreshStatus().then(() => show("home")).catch(fail);
 })();

@@ -67,9 +67,14 @@ class Api:
 
     def _route(self, app: App, method: str, parts: list[str], q: dict[str, str], body: dict[str, Any]) -> Any:
         head = parts[0] if parts else ""
+        if head == "home" and method == "GET":
+            return {"languages": [self._language_card(app, row) for row in app.languages.list()],
+                    "pending_review": len(app.review_service.pending())}
         if head == "status" and method == "GET":
+            from .. import __version__
             name, ok, why = app.agent_service.agent_status()
-            return {"home": str(app.paths.root), "languages": [_jsonable(r) for r in app.languages.list()],
+            return {"home": str(app.paths.root), "version": __version__,
+                    "languages": [_jsonable(r) for r in app.languages.list()],
                     "agent": {"name": name, "available": ok, "why": why,
                               "installed": [{"name": n, "installed": i, "what": w} for n, i, w in app.agent_service.installed()]},
                     "backends": [b.name for b in app.agent_service.backends()],
@@ -143,6 +148,26 @@ class Api:
                 except ValueError as exc:
                     raise ApiError(400, str(exc))
         raise ApiError(404, f"no route for {method} /api/{'/'.join(parts)}")
+
+    def _language_card(self, app: App, row) -> dict[str, Any]:
+        lid = row["id"]
+        resources = app.resources.count_for_language(lid)
+        pending = len(app.review_service.pending(lid))
+        profile = app.language_service.load(lid)
+        to_ask = len(app.profile_service.status(profile).to_ask) if profile else 0
+        last = app.sessions.last_for_language(lid)
+        if pending:
+            step = f"go through what is waiting ({pending} item(s) in the review queue)"
+        elif resources == 0:
+            step = "start collecting: online, offline or import"
+        elif to_ask > 12:
+            step = f"complete the language profile ({to_ask} field(s) still missing)"
+        else:
+            step = "collect more, or view the existing collection"
+        return {"id": lid, "name": row["name"], "iso639_3": row["iso639_3"], "identifier_type": row["identifier_type"],
+                "resources": resources, "pending_review": pending, "profile_missing": to_ask, "next_step": step,
+                "last_session": {"id": last["id"], "mode": last["mode"], "started_at": last["started_at"],
+                                 "status": last["status"]} if last else None}
 
     # ------------------------------------------------------------------ languages / profile
     def _languages(self, app: App, method: str, parts: list[str], q: dict[str, str], body: dict[str, Any]) -> Any:
