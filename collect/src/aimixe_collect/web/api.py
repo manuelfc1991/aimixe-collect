@@ -285,7 +285,7 @@ class Api:
         kind = body.get("kind")
         lid = body.get("language_id")
         params = body.get("params") or {}
-        if kind not in ("import", "offline", "catalogue_search", "catalogue_collect", "agent_search"):
+        if kind not in ("import", "offline", "catalogue_search", "catalogue_collect", "agent_search", "profile_enrich"):
             raise ApiError(400, f"unknown job kind {kind!r}")
         if not lid:
             raise ApiError(400, "language_id is required")
@@ -352,6 +352,10 @@ class Api:
                             "outcomes": [outcome_json(o) for o in run.outcomes],
                             "proposals": run.report.proposals,
                             "lookup_manifest": str(run.lookup_manifest) if run.lookup_manifest else None}
+                if kind == "profile_enrich":
+                    counts = app.agent_service.propose_profile(profile, on_message=job.say,
+                                                               max_pages=int(params.get("max_pages", 6)))
+                    return counts
                 if kind == "agent_search":
                     svc = app.agent_service
                     runner = svc.runner(profile, progress=prog)

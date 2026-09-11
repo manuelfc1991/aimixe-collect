@@ -101,8 +101,9 @@ class AgentSearchReport:
 class AgentSearchRunner:
     def __init__(self, agent: AgentProvider, backends: list[WebSearchBackend], profile: Profile,
                  *, review_at: int, confirmed_at: int, limits: SearchLimits | None = None,
-                 progress: Progress | None = None):
+                 progress: Progress | None = None, learn_only: bool = False):
         self.progress = progress or Progress()
+        self.learn_only = learn_only          # profile enrichment: propose facts, download nothing
         self.agent = agent
         self.agent.bind(profile)
         self.backends = backends
@@ -164,7 +165,8 @@ class AgentSearchRunner:
                                    max_pages=self.limits.max_pages, files=len(self._file_urls))
                 say(f"  {q.text}  →  {len(hits)} hit(s)")
                 for hit in hits:
-                    if self.report.pages_fetched >= self.limits.max_pages or self._downloaded >= self.limits.max_files:
+                    if self.report.pages_fetched >= self.limits.max_pages or \
+                            (self.limits.max_files and self._downloaded >= self.limits.max_files):
                         break
                     try:
                         outcomes.extend(self._visit(hit.url, q.text, depth=1, temp_dir=temp_dir, ingest=ingest,
@@ -231,7 +233,8 @@ class AgentSearchRunner:
             self.report.visited.append({"url": url, "action": "robots-disallowed"})
             return outcomes
         if looks_like_file(url) or _repo_kind(url):
-            outcomes.extend(self._file(url, query, parent or url, title, temp_dir, ingest, say, on_outcome))
+            if not self.learn_only:
+                outcomes.extend(self._file(url, query, parent or url, title, temp_dir, ingest, say, on_outcome))
             return outcomes
         self._host_counts[host] = self._host_counts.get(host, 0) + 1
         try:
@@ -244,7 +247,8 @@ class AgentSearchRunner:
         self.progress.step(stage="reading pages", pages=self.report.pages_fetched, max_pages=self.limits.max_pages,
                            files=len(self._file_urls), url=url[:80])
         if page.is_file:
-            outcomes.extend(self._file(url, query, parent or url, title, temp_dir, ingest, say, on_outcome))
+            if not self.learn_only:
+                outcomes.extend(self._file(url, query, parent or url, title, temp_dir, ingest, say, on_outcome))
             return outcomes
         analysis = self.agent.analyze(AnalysisContext(self.profile, url, page.title or title, page.text[:20000], snippet,
                                                       {"language": page.meta.get("dc.language") or page.meta.get("language")},
@@ -264,8 +268,8 @@ class AgentSearchRunner:
             else:
                 say(f"    (page mentions the language but is not about it; nothing learned from {url[:70]})")
             # step 5/6: files linked from the page
-            for link, anchor in page.links:
-                if self._downloaded >= self.limits.max_files:
+            for link, anchor in ([] if self.learn_only else page.links):
+                if self.limits.max_files and self._downloaded >= self.limits.max_files:
                     break
                 if skip_host(link) or normalise_url(link) in self._seen_urls:
                     continue
@@ -273,7 +277,7 @@ class AgentSearchRunner:
                     outcomes.extend(self._file(link, query, url, anchor or page.title, temp_dir, ingest, say, on_outcome,
                                                page_score=analysis.score, page_title=page.title))
             # a relevant HTML page is itself a resource (online dictionaries, documentation sites)
-            if analysis.score >= self.confirmed_at:
+            if analysis.score >= self.confirmed_at and not self.learn_only:
                 outcomes.extend(self._store_page(page, query, temp_dir, ingest, on_outcome, analysis.score,
                                                  analysis.resource_types))
             # step 4: follow links whose anchor text mentions the language or its varieties

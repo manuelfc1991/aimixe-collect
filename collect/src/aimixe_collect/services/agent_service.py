@@ -163,10 +163,11 @@ class AgentService:
 
     # ------------------------------------------------------------ run
     def runner(self, profile: Profile, backends: list[WebSearchBackend] | None = None,
-               agent: AgentProvider | None = None, progress: Progress | None = None) -> AgentSearchRunner:
+               agent: AgentProvider | None = None, progress: Progress | None = None,
+               learn_only: bool = False) -> AgentSearchRunner:
         return AgentSearchRunner(agent or self.agent(), backends if backends is not None else self.backends(), profile,
                                  review_at=self.app.config.review_at, confirmed_at=self.app.config.confirmed_at,
-                                 limits=self.limits(), progress=progress)
+                                 limits=self.limits(), progress=progress, learn_only=learn_only)
 
     def plan(self, profile: Profile, runner: AgentSearchRunner | None = None) -> list[AgentQuery]:
         return (runner or self.runner(profile)).plan()
@@ -215,6 +216,62 @@ class AgentService:
             pass
         col.finish_session(sid, status)
         return run
+
+    # ------------------------------------------------------------ profile enrichment
+    def propose_profile(self, profile: Profile, on_message: Callable[[str], None] | None = None,
+                        max_pages: int = 6) -> dict:
+        """Ask catalogues (Glottolog) and a learn-only agent pass to propose profile values.
+
+        Nothing is downloaded or stored; every fact goes to the review queue (specification §18).
+        Returns counts: catalogue proposals, agent proposals, pages read, session id.
+        """
+        say = on_message or (lambda m: None)
+        col = self.app.collection_service
+        sid = col.start_session(profile, "Profile Enrichment", {"max_pages": max_pages})
+        counts = {"catalogue": 0, "agent": 0, "pages": 0, "session": sid, "errors": []}
+        # 1. catalogues that assert language facts (Glottolog)
+        cat = self.app.catalogue_service
+        providers = [e.provider for e in cat.list() if e.enabled and e.name == "glottolog"]
+        if providers:
+            say("  asking Glottolog …")
+            try:
+                for r in providers[0].search(profile):
+                    if r.proposals:
+                        n = cat._propose(profile, r, sid)
+                        counts["catalogue"] += n
+                        say(f"    Glottolog: {n} proposal(s)")
+            except Exception as exc:
+                counts["errors"].append(f"glottolog: {exc}")
+        # 2. a short agent pass that reads pages about the language and extracts facts
+        backends = self.backends()
+        if not backends:
+            counts["errors"].append("no usable search engine (aimixe collect search list)")
+        else:
+            runner = self.runner(profile, backends, learn_only=True)
+            lim = runner.limits
+            runner.limits = SearchLimits(max_queries=4, hits_per_query=4, max_pages=max_pages, max_depth=1,
+                                         per_host=3, max_rounds=1, max_files=0, max_bytes=lim.max_bytes, timeout=lim.timeout)
+            queries = [q for q in runner.plan() if q.basis in ("name", "code")][:4]
+            runner.report.queries = queries
+            say(f"  reading up to {max_pages} pages about {profile.name} with {runner.agent.name} …")
+            temp = self.app.paths.temp / f"enrich-{sid}"
+            temp.mkdir(parents=True, exist_ok=True)
+            try:
+                runner.run(queries, temp, lambda c: None, on_message=say)
+            except KeyboardInterrupt:
+                pass
+            counts["pages"] = runner.report.pages_fetched
+            counts["agent"] = self._queue_proposals(profile, runner.report, sid)
+            counts["errors"].extend(runner.report.errors[:5])
+            for v in runner.report.visited:
+                self.app.sessions.event(sid, "info", f"read ({v.get('action')}, {v.get('score')}): {v.get('url')}", v)
+            try:
+                temp.rmdir()
+            except OSError:
+                pass
+        self.app.sessions.event(sid, "info", "profile enrichment complete", counts)
+        col.finish_session(sid)
+        return counts
 
     def _queue_proposals(self, profile: Profile, rep: AgentSearchReport, sid: str) -> int:
         n = 0

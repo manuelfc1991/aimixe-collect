@@ -132,6 +132,8 @@
       <ul class="progress"><li class="done">✓ Basic identification</li>
         ${schema.groups.map((g) => `<li class="${st.groups[g.name]}">${st.groups[g.name] === "done" ? "✓" : "○"} ${esc(g.progress_label)}</li>`).join("")}</ul>
       <p class="muted">${st.known.length} field(s) known, ${st.to_ask.length} missing or uncertain. Values from the bundled tables are marked <em>local_database</em>; your answers are marked <em>user</em>. Nothing is overwritten: sources that disagree are kept side by side.</p>
+      <div class="card row"><button id="profile-propose">Ask catalogues and the agent to propose values</button><span class="muted">Glottolog plus a short read of pages about the language; nothing is downloaded; each fact goes to the review queue.</span></div>
+      <pre id="propose-log" class="log hidden"></pre>
       ${schema.groups.map((g) => `
         <div class="card"><h2>${esc(g.title)} <span class="tag">${esc(st.groups[g.name])}</span></h2>
           ${g.fields.map((f) => {
@@ -147,6 +149,15 @@
             </div>`;
           }).join("")}
         </div>`).join("")}`;
+    $("#profile-propose").addEventListener("click", async () => {
+      const log = $("#propose-log"); log.classList.remove("hidden");
+      try {
+        const j = await runJob("profile_enrich", {}, log);
+        const c = j.result || {};
+        toast(`${c.catalogue || 0} fact(s) from Glottolog, ${c.agent || 0} from ${c.pages || 0} page(s)`);
+        if ((c.catalogue || 0) + (c.agent || 0) > 0) show("review"); else renderProfile();
+      } catch (e) { fail(e); }
+    });
     $$(".field", el).forEach((fieldEl) => {
       const form = $(".editor", fieldEl);
       $(".edit", fieldEl).addEventListener("click", () => form.classList.toggle("open"));

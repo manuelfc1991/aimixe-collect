@@ -212,9 +212,11 @@ def profile_step(app: App, profile: Profile, force_menu: bool = False) -> None:
             "Review existing profile",
             "Edit profile",
             "Skip and continue collection",
+            "Ask catalogues and the agent to propose values",
         ], descriptions=[f"{len(status.to_ask)} field(s) missing or uncertain, asked group by group; blank skips a field",
                          "every field with its value and where each value came from",
-                         "change any field, one section or all of them", ""])
+                         "change any field, one section or all of them", "",
+                         "Glottolog plus a short read of pages about the language; nothing downloaded; you accept or reject each fact"])
         status = app.profile_service.status(profile)
         if idx == 0:
             if not status.to_ask:
@@ -229,7 +231,31 @@ def profile_step(app: App, profile: Profile, force_menu: bool = False) -> None:
         if idx == 2:
             edit_profile(app, profile, wizard)
             continue
+        if idx == 4:
+            propose_profile_values(app, profile)
+            profile = app.language_service.load(profile.id) or profile
+            wizard = ProfileWizard(app, profile)
+            wizard.show_known_missing(app.profile_service.status(profile))
+            continue
         return
+
+
+def propose_profile_values(app: App, profile: Profile) -> None:
+    """Menu item 5: catalogues and the agent propose profile values, then the review queue opens."""
+    name, ok, why = app.agent_service.agent_status()
+    r.heading("Propose profile values")
+    r.note(f"  agent: {name}" + ("" if ok else f" (not available: {why}; rule-based extraction is used)") +
+           " · engines: " + (", ".join(b.name for b in app.agent_service.backends()) or "none usable"))
+    counts = app.agent_service.propose_profile(profile, on_message=r.out)
+    for e in counts["errors"]:
+        r.out(f"  ! {e}")
+    total = counts["catalogue"] + counts["agent"]
+    r.out(f"\n{counts['catalogue']} fact(s) from Glottolog, {counts['agent']} from {counts['pages']} page(s) read.")
+    if total == 0:
+        r.out("Nothing new to propose. The remaining fields need a person who knows the community.")
+        return
+    if r.ask_yes_no(f"Review the {total} proposal(s) now?"):
+        run_review(app, profile.id)
 
 
 def edit_profile(app: App, profile: Profile, wizard: ProfileWizard) -> None:
