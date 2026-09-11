@@ -131,6 +131,42 @@ class RelevanceResult:
     matched_terms: list[str]
 
 
+# Ordinary English words that are also language names (Even, Bench, Gun, Male, Mono, Chin, Ache, Bench, Bata …).
+# A match on such a name needs language context nearby (see _language_context) to count in full.
+_ENGLISH_WORD_NAMES = set("""even bench gun male mono chin ache bata bench bit bom bore bum bun cat cha chip come dan day dog
+east ewe fur gaga gay gun ha hem ho ii ipo kid koi lai lala lame law lay lo lot mam man mango me mo mom mum nap no
+nut ok one pa pan pen pet poke pom pop rat rest ring roll ro ron sa sam sap saw sea she so son sun tan tap tau tea ten
+tin tip to toe ton tot tu tuna ugo uma uni var way win wo yes yo you zip aka ama ari asa ata bee bel ben bi bo bua
+cam can car col cul dai dam dan dao dap day dei dem den dia dim din dip doe don dom dot dua duo ela ele eli emu era ese
+eve fa fan far fas fat fil fon for fun gab gal gan gap gas gen get gia gin git go gor gua gud gum gur ha hai han hao
+he hi hit ho hop hot hu hui ido in io ira iru is it ja jam jen jo ju kam kan kar kas kat kaw ke kei kem ken kim kin
+kit ko kol kom kon kor kot ku kui kum kur kwa la lab lac lag lak lam lap las lau le lem len lik lil lim lin lit lo
+lok lom lon lor lu lua lug lui lun ma mai mak mal man mar mas mat mau me men mer mi min mo mon mor mu mua mun mut na
+nai nam nan nao nda ne nen ng ni nii no nom non nu nya oa ob oc oi ok om on op or os ot pa pai pal pam pan pao par pat
+pe pei pen pi po pom pu pua ra rai ram ran rao re ri ro ron ru rum sa sai sam san sao sar sat se sen ser si so som
+son sou su sua sun ta tai tak tal tam tan tao tar tat te tem ten ti tin to tom ton tu tua tum tur tut u ua ui uk um
+un ur us va vai van ve vi wa wai wan war we wo wu ya yai yan yao ye yi yo yu za zan zo""".split())
+
+# Strong signs that the surrounding text is about a language (not "people", "texts", "village": too generic).
+_CONTEXT = re.compile(r"\b(languages?|dialects?|speakers?|spoken|grammar|grammatical|dictionary|lexicon|wordlist|word list|"
+                      r"vocabulary|phonolog\w*|phonetic\w*|orthograph\w*|linguist\w*|morpholog\w*|syntax|syntactic|"
+                      r"negation|pronouns?|tonal|lexical|semantic\w*|clauses?|verbs?|nouns?|folktales?|bible translation|"
+                      r"primer|literacy|glottolog|iso 639)\b", re.I)
+
+
+def _ambiguous_name(term: str) -> bool:
+    f = fold(term)
+    return f in _ENGLISH_WORD_NAMES or (len(f) <= 3 and " " not in f)
+
+
+def _language_context(text: str, term: str, window: int = 32) -> bool:
+    """Does ``term`` occur, spelled as a proper noun, close to a word that says we are talking about a language?"""
+    for m in re.finditer(r"\b" + re.escape(term) + r"\b", text):          # case-sensitive: "Even", not "even"
+        if _CONTEXT.search(text[max(0, m.start() - window): m.end() + window]):
+            return True
+    return False
+
+
 _COMMON = set("""a an and the of in on at to for by with from as is are was were be long short new old big small
 north south east west upper lower central great little red black white green blue high low first second land river
 mountain hill valley island lake sea bay point town city village people man men language""".split())
@@ -222,9 +258,15 @@ def score_text(terms: ProfileTerms, text: str, *, metadata_language: str | None 
             matched.append(terms.iso)
 
     used: set[str] = set()          # a term is evidence once, whatever signals list it
-    if _contains(blob, terms.name):
-        total += WEIGHTS["exact_name"]
-        reasons.append(f"exact language name: {terms.name}")
+    name_hit = _contains(blob, terms.name) or (len(fold(terms.name)) < 3 and _language_context(text, terms.name))
+    if name_hit:
+        strength = 1.0
+        if _ambiguous_name(terms.name) and not _language_context(text, terms.name):
+            strength = 0.3
+            reasons.append(f"name “{terms.name}” is an ordinary word and appears without language context")
+        else:
+            reasons.append(f"exact language name: {terms.name}")
+        total += WEIGHTS["exact_name"] * strength
         matched.append(terms.name)
         used.add(fold(terms.name))
 
@@ -236,7 +278,8 @@ def score_text(terms: ProfileTerms, text: str, *, metadata_language: str | None 
         if hits:
             w = WEIGHTS[signal]
             # a short, generic name ("Naga", "Chang") or one shared by many languages ("Zhuang") is weak alone
-            strength = max(_term_strength(t) * (0.5 if fold(t) in terms.weak else 1.0) for t in hits)
+            strength = max(_term_strength(t) * (0.5 if fold(t) in terms.weak else 1.0)
+                           * (0.3 if _ambiguous_name(t) and not _language_context(text, t) else 1.0) for t in hits)
             if all(fold(t) in terms.weak for t in hits):
                 signal_label = signal.replace("_", " ") + " (shared name, weak)"
             else:

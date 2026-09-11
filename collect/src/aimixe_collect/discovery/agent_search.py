@@ -178,7 +178,9 @@ class AgentSearchRunner:
                     seen.add(n)
                     hits.append(h)
             except http.HttpError as exc:
-                self.report.errors.append(f"{b.name}: {exc}")
+                msg = f"{b.name}: {exc}"
+                if msg not in self.report.errors:
+                    self.report.errors.append(msg)
             except Exception as exc:  # a backend must never stop the run
                 self.report.errors.append(f"{b.name}: {type(exc).__name__}: {exc}")
         self.report.hits += len(hits)

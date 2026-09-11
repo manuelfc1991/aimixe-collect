@@ -74,6 +74,9 @@ names, and a Glottolog 5.3 / CLDR extract (CC-BY-4.0, see `reference-SOURCES.md`
   are not computed (no decoders in the standard library).
 - Relevance scoring is heuristic. Uncertain results go to the review queue; names shared by
   many languages ("Zhuang", "Naga") count as weak evidence on purpose.
+- Web search without API keys depends on DuckDuckGo's HTML page, Bing's RSS feed and the
+  Wikipedia API. DuckDuckGo sometimes answers with a bot check; the run reports it and the
+  other backends carry on. A keyed search API can be configured under `[agent.search_api]`.
 - The web interface has no login; it binds to 127.0.0.1 only.
 - Tested on Linux. macOS should behave the same; on Windows use the `pip install` route
   (the `bin/aimixe` script is a Unix shell script). Not yet verified on Windows.

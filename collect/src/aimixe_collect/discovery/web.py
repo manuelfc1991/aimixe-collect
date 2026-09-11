@@ -55,7 +55,9 @@ class DuckDuckGoBackend(WebSearchBackend):
     name = "duckduckgo"
 
     def search(self, query: str, limit: int = 10) -> list[WebHit]:
-        page = http.get_text("https://html.duckduckgo.com/html/?q=" + http.q(query), use_cache=True)
+        page = http.get_text("https://html.duckduckgo.com/html/?q=" + http.q(query), use_cache=False)
+        if "result__a" not in page and re.search(r"anomaly|challenge|bots? ", page, re.I):
+            raise http.HttpError("duckduckgo: bot check page returned (HTTP 202); try later or rely on bing/wikipedia")
         hits: list[WebHit] = []
         for m in re.finditer(r'<a[^>]+class="result__a"[^>]+href="([^"]+)"[^>]*>(.*?)</a>(.*?)(?=<a[^>]+class="result__a"|$)',
                              page, re.S):
@@ -77,7 +79,7 @@ class BingRssBackend(WebSearchBackend):
     name = "bing"
 
     def search(self, query: str, limit: int = 10) -> list[WebHit]:
-        xml = http.get_text("https://www.bing.com/search?format=rss&q=" + http.q(query), use_cache=True)
+        xml = http.get_text("https://www.bing.com/search?format=rss&q=" + http.q(query), use_cache=False)
         hits = []
         for item in re.findall(r"<item>(.*?)</item>", xml, re.S):
             link = re.search(r"<link>(.*?)</link>", item, re.S)
@@ -96,7 +98,7 @@ class WikipediaBackend(WebSearchBackend):
 
     def search(self, query: str, limit: int = 5) -> list[WebHit]:
         data = http.get_json("https://en.wikipedia.org/w/api.php?action=query&list=search&format=json&srlimit="
-                             f"{limit}&srsearch=" + http.q(query.replace('"', "")))
+                             f"{limit}&srsearch=" + http.q(query.replace('"', "")), use_cache=False)
         hits = []
         for s in data.get("query", {}).get("search", []):
             title = s.get("title", "")

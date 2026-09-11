@@ -101,7 +101,8 @@ class CatalogueProvider:
         if self.asks_by in ("code", "both") and t.iso:
             add(t.iso, "code")
         if self.asks_by in ("name", "both"):
-            add(t.name, "name")
+            from ..relevance.scorer import _ambiguous_name
+            add(f"{t.name} language" if _ambiguous_name(t.name) else t.name, "name")
             for a in t.alternate_names[:3]:
                 add(a if " " in a.strip() else f"{a} language", "alternate_name")
             for v in t.varieties[:2]:
