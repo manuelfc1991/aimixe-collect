@@ -6,3 +6,4 @@ dist/
 .venv/
 .DS_Store
 # runtime data lives in ~/.aimixe, never in the repository
+.~lock.*#
