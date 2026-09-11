@@ -178,6 +178,12 @@ class ResourceRepo:
     def extractions(self, resource_id: int) -> list[sqlite3.Row]:
         return self.conn.execute("SELECT * FROM extraction WHERE resource_id=? ORDER BY id", (resource_id,)).fetchall()
 
+    def session_bytes(self, session_id: str) -> int:
+        row = self.conn.execute(
+            "SELECT COALESCE(SUM(r.size), 0) FROM resource r WHERE r.id IN "
+            "(SELECT DISTINCT resource_id FROM resource_source WHERE session_id=?)", (session_id,)).fetchone()
+        return int(row[0] or 0)
+
     def for_language(self, language_id: str) -> list[sqlite3.Row]:
         return self.conn.execute(
             "SELECT r.*, rl.relevance_score, rl.band, rl.status, "

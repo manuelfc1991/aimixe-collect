@@ -12,14 +12,28 @@ from ..services.collection_service import SessionSummary
 from ..storage.object_store import STORAGE_MODES
 from . import render as r
 from .profile_wizard import ProfileWizard
-from .render import Abort
+from .render import Abort, Back
 from .review_ui import run_review
+
+
+def _header(app: App, profile: Profile | None) -> None:
+    if profile is None:
+        r.header()
+        return
+    r.header(profile.name, profile.iso639_3 or profile.id, app.resources.count_for_language(profile.id),
+             len(app.review_service.pending(profile.id)))
+
+
+WELCOME = """Welcome. AImixE collects language resources three ways: online (catalogues and an agent
+searching the web), offline (scanning folders on this machine) and by direct import. Every file
+is hashed, classified, stored unchanged and indexed with where it came from. Start by naming a
+language; the profile you build for it steers every search."""
 
 
 # ------------------------------------------------------------------ §1 language step
 def show_detected(m: ResolvedLanguage) -> None:
     r.heading("Language detected")
-    r.out(f"Name: {m.name}")
+    r.out(f"Name: {r.c(m.name, 'bold')}")
     r.out(f"ISO 639-3: {m.iso639_3 or '— (local identifier ' + m.language_id + ')'}")
     if m.alternative_names:
         r.out(f"Alternative names: {', '.join(m.alternative_names[:6])}")
@@ -39,7 +53,9 @@ def pick_language(app: App, preset: str | None = None, assume_yes: bool = False)
     query = preset
     while True:
         if not query:
-            query = r.prompt("Enter language name or ISO 639-3 code:")
+            query = r.prompt("Enter language name or ISO 639-3 code:",
+                             help="A language name (Tangsa), an ISO 639-3 code (nst), an alternative name or a dialect name. "
+                                  "The local registry is searched first, then the bundled ISO 639-3 / Glottolog tables.")
             if not query:
                 continue
         res: Resolution = app.language_service.resolve(query)
@@ -154,35 +170,49 @@ def edit_profile(app: App, profile: Profile, wizard: ProfileWizard) -> None:
 
 
 # ------------------------------------------------------------------ §3 main menu
+MAIN_HELP = ("Online: search catalogues (Glottolog, Zenodo, Internet Archive …) or let an agent search the web. "
+             "Offline: scan folders on this machine for the profile's names. Import: add a file or folder directly. "
+             "View: what is stored for this language. Profile: complete or edit the language profile.")
+
+
 def main_menu(app: App, profile: Profile) -> None:
     while True:
-        idx = r.choose(f"Data Collection\n\nLanguage: {profile.name} [{profile.iso639_3 or profile.id}]", [
-            "Online Collection",
-            "Offline Collection",
-            "Import Files / Folder",
-            "View Existing Collection",
-            "Language Profile",
-            "Exit",
-        ])
-        if idx == 0:
-            online_menu(app, profile)
-        elif idx == 1:
-            offline_collection(app, profile)
-        elif idx == 2:
-            import_menu(app, profile)
-        elif idx == 3:
-            view_collection(app, profile)
-        elif idx == 4:
-            profile = app.language_service.load(profile.id) or profile
-            profile_step(app, profile, force_menu=True)
-        else:
+        profile = app.language_service.load(profile.id) or profile
+        _header(app, profile)
+        try:
+            idx = r.choose(f"Data Collection\n\nLanguage: {profile.name} [{profile.iso639_3 or profile.id}]", [
+                "Online Collection",
+                "Offline Collection",
+                "Import Files / Folder",
+                "View Existing Collection",
+                "Language Profile",
+                "Exit",
+            ], help=MAIN_HELP)
+        except Back:
             return
+        try:
+            if idx == 0:
+                online_menu(app, profile)
+            elif idx == 1:
+                offline_collection(app, profile)
+            elif idx == 2:
+                import_menu(app, profile)
+            elif idx == 3:
+                view_collection(app, profile)
+            elif idx == 4:
+                profile_step(app, profile, force_menu=True)
+            else:
+                return
+        except Back:
+            continue
 
 
 # ------------------------------------------------------------------ §4 online
 def online_menu(app: App, profile: Profile) -> None:
     while True:
-        idx = r.choose("Online Collection", ["Catalogue Search", "Agent Search", "Back"])
+        idx = r.choose("Online Collection", ["Catalogue Search", "Agent Search", "Back"],
+                       help="Catalogue Search asks known archives and repositories with the whole profile. "
+                            "Agent Search plans web queries from the profile, follows pages and learns new names.")
         if idx == 0:
             catalogue_search(app, profile)
         elif idx == 1:
@@ -225,7 +255,7 @@ def catalogue_search(app: App, profile: Profile, assume_yes: bool = False,
     r.out()
     rows = []
     for sr in report.results[:60]:
-        rows.append([str(sr.relevance.score), sr.relevance.band_label, sr.result.provider,
+        rows.append([r.score_text(sr.relevance.score), sr.relevance.band_label, sr.result.provider,
                      sr.result.title[:70], str(len(sr.result.files)) if sr.result.fetched else "?"])
     if rows:
         r.table(rows, headers=["score", "band", "catalogue", "title", "files"])
@@ -258,7 +288,7 @@ def catalogue_search(app: App, profile: Profile, assume_yes: bool = False,
     if run.lookup_manifest:
         r.out(f"  lookup links saved to {run.lookup_manifest}")
     summary = app.collection_service.summary(run.session_id)
-    print_summary(summary)
+    print_summary(summary, app)
     return summary
 
 
@@ -310,7 +340,7 @@ def agent_search(app: App, profile: Profile, assume_yes: bool = False) -> Sessio
     for err in rep.errors[:8]:
         r.out(f"  ! {err}")
     summary = app.collection_service.summary(run.session_id)
-    print_summary(summary)
+    print_summary(summary, app)
     return summary
 
 
@@ -369,7 +399,7 @@ def offline_collection(app: App, profile: Profile, roots: list[Path] | None = No
     if rep:
         r.out(f"\nFiles seen: {rep.files_seen}   matches: {rep.hits}   folders skipped: {rep.dirs_skipped}")
     summary = app.collection_service.summary(result.session_id)
-    print_summary(summary)
+    print_summary(summary, app)
     return summary
 
 
@@ -395,7 +425,7 @@ def run_import(app: App, profile: Profile, path: Path, mode: str | None) -> Sess
                                     on_progress=lambda i, n: prog.step(import_done=i, import_total=n, stage="importing"))
     board.finish()
     summary = app.collection_service.summary(result.session_id)
-    print_summary(summary)
+    print_summary(summary, app)
     return summary
 
 
@@ -417,16 +447,33 @@ def view_collection(app: App, profile: Profile) -> None:
     table = []
     for row in rows:
         d = dict(row)
-        table.append([str(d["id"]), d["original_name"][:48], d["format"], d["category"],
-                      (d["types"] or "—")[:30], f"{d['relevance_score']} {d['status']}", str(d["source_count"])])
+        table.append([str(d["id"]), d["original_name"], d["format"], d["category"],
+                      (d["types"] or "—"), f"{r.score_text(d['relevance_score'])} {d['status']}", str(d["source_count"])])
     r.table(table, headers=["#", "name", "format", "category", "resource type", "relevance", "sources"])
     r.out()
-    ans = r.prompt("Resource number for details (blank to go back):")
-    if ans.isdigit():
-        show_resource(app, int(ans))
+    ids = {str(d["id"]) for d in map(dict, rows)}
+    while True:
+        ans = r.prompt("Resource number for details (blank to go back):",
+                       help="Type the number in the first column to see its provenance, extracted files and near-duplicates.")
+        if not ans or ans.lower() in ("b", "back"):
+            return
+        if ans in ids:
+            show_resource(app, int(ans))
+        else:
+            r.out("No such resource number.")
 
 
 def show_resource(app: App, resource_id: int) -> None:
+    row = app.conn.execute("SELECT * FROM resource WHERE id=?", (resource_id,)).fetchone()
+    if row is not None:
+        r.heading(f"#{row['id']} {row['original_name']}")
+        r.out(f"  stored at  {row['stored_path']}")
+        r.out(f"  sha256     {row['sha256']}")
+        r.out(f"  format     {row['format']} · {row['category']} · {row['size']} bytes · {row['storage_mode']}")
+        types = app.conn.execute("SELECT type, confidence, source FROM resource_type WHERE resource_id=? ORDER BY confidence DESC",
+                                 (resource_id,)).fetchall()
+        if types:
+            r.out("  types      " + ", ".join(f"{t['type']} ({t['confidence']:.2f}, {t['source']})" for t in types))
     r.out("Sources:")
     for s in app.collection_service.resource_sources(resource_id):
         d = {k: v for k, v in dict(s).items() if v not in (None, "")}
@@ -444,19 +491,19 @@ def show_resource(app: App, resource_id: int) -> None:
 
 
 def _outcome_text(o: PipelineOutcome) -> str:
-    label = {"stored": "stored", "duplicate_linked": "duplicate", "uncertain_review": "review",
-             "rejected": "skipped", "failed": "FAILED"}[o.status]
-    rel = f" {o.relevance}" if o.relevance is not None else ""
+    word, colour = r.STATUS_STYLE[o.status]
+    label = r.c(f"{word:9}", colour)
+    rel = f" {r.score_text(o.relevance)}" if o.relevance is not None else "    "
     types = f" [{', '.join(o.types[:3])}]" if o.types else ""
     extra = f" — {o.message}" if o.status in ("failed", "duplicate_linked", "rejected") and o.message else ""
-    return f"  {label:9}{rel:>4} {o.candidate.display}{types}{extra}"
+    return f"  {label}{rel} {o.candidate.display}{types}{extra}"
 
 
 def _print_outcome(o: PipelineOutcome) -> None:
     r.out(_outcome_text(o))
 
 
-def print_summary(s: SessionSummary) -> None:
+def print_summary(s: SessionSummary, app: App | None = None) -> None:
     r.heading(f"Collection Session: {s.id}")
     r.out(f"Language: {s.language_name} [{s.language_id}]")
     r.out(f"Mode: {s.mode}")
@@ -469,6 +516,22 @@ def print_summary(s: SessionSummary) -> None:
     r.out(f"Pending review: {s.pending_review}")
     if s.status != "finished":
         r.out(f"Status: {s.status}")
+    extras = []
+    if s.started_at and s.finished_at:
+        from datetime import datetime
+        from ..progress import human_time
+        try:
+            secs = (datetime.fromisoformat(s.finished_at) - datetime.fromisoformat(s.started_at)).total_seconds()
+            extras.append(f"took {human_time(secs)}")
+        except ValueError:
+            pass
+    if app is not None:
+        from ..progress import human_bytes
+        b = app.resources.session_bytes(s.id)
+        if b:
+            extras.append(f"{human_bytes(b)} stored")
+    if extras:
+        r.note("  " + " · ".join(extras))
     r.out()
 
 
@@ -516,6 +579,9 @@ def catalogue_add_wizard() -> dict | None:
 # ------------------------------------------------------------------ entry
 def run_interactive(app: App, preset_language: str | None = None, assume_yes: bool = False) -> int:
     try:
+        if not preset_language and not app.languages.list():
+            r.note(WELCOME)
+            r.out()
         profile = pick_language(app, preset_language, assume_yes)
         if profile is None:
             return 0
@@ -523,7 +589,7 @@ def run_interactive(app: App, preset_language: str | None = None, assume_yes: bo
         profile = app.language_service.load(profile.id) or profile
         main_menu(app, profile)
         return 0
-    except Abort:
+    except (Abort, Back):
         r.out("Bye.")
         return 0
 

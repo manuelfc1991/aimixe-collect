@@ -29,7 +29,23 @@ EXIT_OK, EXIT_CHECK_FAILED, EXIT_NOT_EVALUABLE, EXIT_INVALID, EXIT_CONFIG, EXIT_
 
 
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(prog="aimixe collect", description="AImixE Data Collection Module")
+    p = argparse.ArgumentParser(
+        prog="aimixe collect", description="AImixE Data Collection Module",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""examples:
+  aimixe collect                      interactive: name a language, build its profile, collect
+  aimixe collect nst                  start with a language (name, ISO 639-3 code or alias)
+  aimixe collect nst --catalogue      search catalogues, then download what scores high enough
+  aimixe collect nst --agent          web search planned from the profile (rule-based or a model CLI)
+  aimixe collect nst --scan ~/Docs    offline: find files on this machine about the language
+  aimixe collect import grammar.pdf   add a file or folder (copy | move | reference)
+  aimixe collect review               accept or reject uncertain resources and proposed facts
+  aimixe collect history              past collection sessions
+  aimixe collect catalogue list       catalogue providers (add | remove)
+  aimixe collect ui                   the same, in your browser
+in any menu: number or text to choose, b = back, q = quit, ? = help.""")
+    p.add_argument("--version", action="version", version="aimixe collect 0.1.0")
+    p.add_argument("--no-color", action="store_true", help="plain output (also honoured: NO_COLOR)")
     p.add_argument("language", nargs="?", help="language name or ISO 639-3 code")
     p.add_argument("--online", action="store_true", help="online collection menu")
     p.add_argument("--offline", action="store_true", help="offline collection (asks for folders)")
@@ -47,6 +63,7 @@ def build_parser() -> argparse.ArgumentParser:
 def build_sub_parser() -> argparse.ArgumentParser:
     common = argparse.ArgumentParser(add_help=False)
     common.add_argument("--home", metavar="DIR", help="AImixE home directory")
+    common.add_argument("--no-color", action="store_true", help="plain output")
     p = argparse.ArgumentParser(prog="aimixe collect", parents=[common])
     sub = p.add_subparsers(dest="command", required=True)
 
@@ -94,7 +111,7 @@ def main(argv: list[str] | None = None) -> int:
         if argv and argv[0] in SUBCOMMANDS:
             return _run_sub(argv)
         return _run_main(argv)
-    except Abort:
+    except (Abort, r.Back):
         r.out("Bye.")
         return EXIT_OK
     except KeyboardInterrupt:
@@ -110,6 +127,8 @@ def main(argv: list[str] | None = None) -> int:
 
 def _run_main(argv: list[str]) -> int:
     ns = build_parser().parse_args(argv)
+    if ns.no_color:
+        r.set_color(False)
     home = Path(ns.home).expanduser() if ns.home else None
     with App(home) as app:
         if not ns.language:
@@ -154,6 +173,8 @@ def _run_main(argv: list[str]) -> int:
 
 def _run_sub(argv: list[str]) -> int:
     ns = build_sub_parser().parse_args(argv)
+    if getattr(ns, "no_color", False):
+        r.set_color(False)
     home = Path(ns.home).expanduser() if getattr(ns, "home", None) else None
     if ns.command == "ui":
         from ..web.server import serve
