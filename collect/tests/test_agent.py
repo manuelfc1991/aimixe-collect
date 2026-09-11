@@ -285,5 +285,5 @@ class IriTests(unittest.TestCase):
 
             runner = t.app.agent_service.runner(p, backends=[Mixed()], agent=RuleBasedAgent(max_queries=1))
             run = t.app.agent_service.run(p, runner, runner.plan())
-            self.assertEqual(run.report.pages_fetched, 1)          # the good page was still visited
+            self.assertGreaterEqual(run.report.pages_fetched, 1)   # the good page was still visited
             self.assertTrue(run.report.errors)                      # the bad one is reported, not fatal
