@@ -122,6 +122,7 @@ td:first-child { white-space:nowrap; }
     <li><a href="#web-review" class="l2">Review queue</a></li>
     <li><a href="#web-history" class="l2">History</a></li>
     <li><a href="#web-settings" class="l2">Settings · Catalogues</a></li>
+    <li><a href="#web-jobs" class="l2">Leaving a page while a run is going</a></li>
     <li><a href="#web-keys" class="l2">Shortcuts and addresses</a></li>
     <li class="part">Part 4 · Reference</li>
     <li><a href="#ref-relevance">Relevance scoring</a></li>
@@ -411,6 +412,7 @@ Choose a number or a letter:
 <tr><td><code>s</code></td><td>Settings: agent provider, search engines, catalogues.</td></tr>
 <tr><td><code>q</code></td><td>Leave.</td></tr>
 </table>
+<p>When a collection started from the web interface or another terminal is still running, a line <span class="tag amber">in progress</span> with the mode, the language and the session id appears above the actions.</p>
 <p>The tags after each language: <span class="tag amber">local id</span> when the language has no ISO code, the resource count, <span class="tag amber">n to review</span>, and when it was last collected and how. The suggested step changes with the state: start collecting, go through the queue, complete the profile, or collect more.</p>
 
 <h3 id="tui-language">Naming a language</h3>
@@ -792,7 +794,7 @@ aimixe collect ui --no-browser    # only print the address</code></pre>
 <h3 id="web-offline">Offline collection and Import</h3>
 <figure><img src="images/web-offline.jpg" alt="Offline collection page"><figcaption>Folders one per line, storage mode, whether to look inside files, and the search terms the profile provides.</figcaption></figure>
 <figure><img src="images/web-import.jpg" alt="Import page"><figcaption>A path on this machine and the storage mode. Enter in the box starts the import.</figcaption></figure>
-<p>Both run as jobs with a progress line (files seen and matches for a scan, files done for an import), then the session summary and the outcome table. Clicking a stored outcome opens the resource in the Collection page.</p>
+<p>Both run as jobs with a progress line (files seen and matches for a scan, files done for an import), then the session summary and the outcome table. Clicking a stored outcome opens the resource in the Collection page. You can leave the page while it runs; see <a href="#web-jobs">Leaving a page while a run is going</a>.</p>
 
 <h3 id="web-collection">Collection</h3>
 <figure><img src="images/web-collection.jpg" alt="Existing collection page"><figcaption>Every resource of the language with relevance, status, size, format, types and how many source records point at it.</figcaption></figure>
@@ -823,6 +825,16 @@ aimixe collect ui --no-browser    # only print the address</code></pre>
   <li><b>Catalogues</b> summarises the providers; <i>Manage and add catalogues</i> opens the full page.</li>
 </ul>
 <figure><img src="images/web-catalogues.jpg" alt="Catalogues page"><figcaption>Every provider with kind, description, licence note, source and how it searches, plus a form to add your own.</figcaption></figure>
+
+<h3 id="web-jobs">Leaving a page while a run is going</h3>
+<p>Every scan, import, catalogue search or download, agent search and "propose values" runs on the local server as a <b>background job</b>. Changing the menu, reloading the page or closing the tab does not stop it.</p>
+<ul>
+  <li>While a job runs, a card in the <b>sidebar</b> shows its kind, the language and the live counter (files seen and matches, records, pages, or the download speed). It is visible from every page; clicking it takes you back to the job.</li>
+  <li>When you return to the page the job belongs to, it <b>re-attaches</b>: the form is filled in as you left it, and the log, the progress line and, once it is done, the result table are shown as if you had never left. The header says when it started and whether it is still running.</li>
+  <li>When a job finishes while you are on another page, a short message appears ("Offline scan for zyn finished") and the counts in the sidebar and on the home page update.</li>
+  <li>The <b>terminal</b> home screen lists sessions still in progress, whether they were started from the browser or from another terminal, so nothing runs unnoticed.</li>
+</ul>
+<div class="callout"><span class="dot"></span><p>A job belongs to the server process that started it. Stopping <code>aimixe collect ui</code> with Ctrl-C, or leaving the terminal interface with <code>q</code> when the web interface was started with <code>w</code>, ends the process; a run in progress is recorded as interrupted and can be resumed with <code>aimixe collect resume &lt;session-id&gt;</code> for offline scans and imports.</p></div>
 
 <h3 id="web-keys">Shortcuts and addresses</h3>
 <div class="keys">

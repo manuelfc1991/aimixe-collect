@@ -24,14 +24,20 @@ class Job:
     finished_at: str | None = None
     keep: Any = None                   # server-side object kept for a follow-up job (e.g. a search report)
     progress: dict[str, Any] = field(default_factory=dict)   # latest progress snapshot (counters, active transfers)
+    params: dict[str, Any] = field(default_factory=dict)     # what the job was started with (shown when re-attaching)
 
     def say(self, message: str) -> None:
         self.log.append(message)
 
-    def to_json(self) -> dict[str, Any]:
-        return {"id": self.id, "kind": self.kind, "language_id": self.language_id, "status": self.status,
-                "log": self.log[-400:], "result": self.result, "error": self.error, "progress": self.progress,
+    def to_json(self, summary: bool = False) -> dict[str, Any]:
+        head = {"id": self.id, "kind": self.kind, "language_id": self.language_id, "status": self.status,
+                "progress": self.progress, "params": self.params, "error": self.error,
                 "started_at": self.started_at, "finished_at": self.finished_at}
+        if summary:
+            head["last_line"] = self.log[-1] if self.log else ""
+            return head
+        head.update({"log": self.log[-400:], "result": self.result})
+        return head
 
 
 class JobManager:
@@ -39,8 +45,9 @@ class JobManager:
         self.jobs: dict[str, Job] = {}
         self.lock = threading.Lock()
 
-    def start(self, kind: str, language_id: str | None, work: Callable[[Job], Any]) -> Job:
-        job = Job(id=uuid.uuid4().hex[:12], kind=kind, language_id=language_id)
+    def start(self, kind: str, language_id: str | None, work: Callable[[Job], Any],
+              params: dict[str, Any] | None = None) -> Job:
+        job = Job(id=uuid.uuid4().hex[:12], kind=kind, language_id=language_id, params=dict(params or {}))
         with self.lock:
             self.jobs[job.id] = job
 

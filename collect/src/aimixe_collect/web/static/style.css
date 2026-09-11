@@ -49,6 +49,14 @@ svg { flex-shrink: 0; }
 .nav-group { padding: 18px 14px 6px; font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
 .nav-spacer { flex-grow: 1; }
 .badge { padding: 2px 9px; border-radius: 999px; background: var(--amber); color: var(--white); font-size: 11px; font-weight: 600; }
+.side-jobs { display: flex; flex-direction: column; gap: 6px; padding: 8px 6px 0; }
+.side-jobs:empty { display: none; }
+.side-job { display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; border-radius: 12px; background: var(--white); border: 1px solid var(--amber-line); text-align: left; font-size: 12px; color: var(--muted); }
+.side-job .t { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--ink); }
+.side-job .s { font-family: var(--mono); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.side-job:hover { border-color: var(--amber); }
+.job-head { display: flex; align-items: center; gap: 12px; font-size: 13px; color: var(--muted); }
+.job-head b { color: var(--ink); font-weight: 600; }
 .side-status { display: flex; flex-direction: column; gap: 6px; padding: 14px 14px 4px; font-size: 12px; color: var(--muted); }
 .side-status span { display: flex; align-items: center; gap: 8px; }
 .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); display: inline-block; flex-shrink: 0; }

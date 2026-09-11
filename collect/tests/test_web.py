@@ -127,6 +127,11 @@ class ServerTests(unittest.TestCase):
                 html = urllib.request.urlopen(base + "/").read().decode()
                 self.assertIn("AImixE Data Collection", html)
                 self.assertIn('id="view-find"', html)
+                jobs = json.loads(urllib.request.urlopen(base + "/api/jobs?summary=1").read())
+                self.assertIn("jobs", jobs)
+                for j in jobs["jobs"]:
+                    self.assertNotIn("log", j)
+                    self.assertIn("params", j)
                 guide = urllib.request.urlopen(base + "/guide").read().decode()
                 self.assertIn("User Guide", guide)
                 self.assertIn('id="tui-review"', guide)

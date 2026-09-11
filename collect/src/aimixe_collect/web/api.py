@@ -122,7 +122,7 @@ class Api:
         if head == "catalogues":
             return self._catalogues(app, method, parts[1:], body)
         if head == "jobs":
-            return self._jobs(app, method, parts[1:], body)
+            return self._jobs(app, method, parts[1:], body, q)
         if head == "agent" and parts[1:] == ["engines"]:
             if method == "GET":
                 return {"engines": app.agent_service.engines()}
@@ -313,9 +313,9 @@ class Api:
         raise ApiError(404, "no such catalogue route")
 
     # ------------------------------------------------------------------ jobs
-    def _jobs(self, app: App, method: str, parts: list[str], body: dict[str, Any]) -> Any:
+    def _jobs(self, app: App, method: str, parts: list[str], body: dict[str, Any], q: dict[str, str] | None = None) -> Any:
         if not parts and method == "GET":
-            return {"jobs": [j.to_json() for j in self.jobs.list()]}
+            return {"jobs": [j.to_json(summary=bool((q or {}).get("summary"))) for j in self.jobs.list()]}
         if len(parts) == 1 and method == "GET":
             job = self.jobs.get(parts[0])
             if job is None:
@@ -419,7 +419,10 @@ class Api:
                             "proposals_queued": run.proposals_queued, "errors": rep.errors[:20]}
             return None
 
-        job = self.jobs.start(kind, lid, work)
+        shown = {k: v for k, v in params.items() if k != "queries"}
+        if "queries" in params:
+            shown["queries"] = len(params["queries"])
+        job = self.jobs.start(kind, lid, work, params=shown)
         return {"job_id": job.id}
 
 

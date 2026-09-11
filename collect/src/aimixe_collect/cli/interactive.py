@@ -106,6 +106,14 @@ def home_screen(app: App) -> list:
         code = row["iso639_3"] or row["id"]
         r.out(f"  {r.c(str(i), 'cyan', 'bold'):>2}  {r.c(row['name'].ljust(width), 'bold')}  {r.c(code, 'grey')}  {tags}")
         r.hint(step, indent=6)
+    running = [x for x in app.sessions.list(None, 20) if x["status"] == "running"]
+    if running:
+        names = {x["id"]: x["name"] for x in rows}
+        r.out()
+        for x in running:
+            r.out(f"  {r.c('●', 'yellow')}  {r.c('in progress', 'yellow')}  {x['mode']} for {names.get(x['language_id'], x['language_id'])}"
+                  f"  {r.c(x['id'] + ' · started ' + _when(x['started_at']), 'grey')}")
+        r.hint("runs started from the web interface or another terminal; the web page shows their progress live", indent=6)
     pending = len(app.review_service.pending())
     r.out()
     r.out(f"  {r.c('n', 'cyan', 'bold')}  new language  {r.c('(name or ISO 639-3 code)', 'grey')}")

@@ -250,15 +250,12 @@
             <form class="editor hidden">${editorFor(f)}</form></div>`; }).join("")}</div></div>`; }).join("")}</div></div>`;
     $$("[data-go]", el).forEach((b) => b.addEventListener("click", () => { $$("[data-go]", el).forEach((x) => x.classList.toggle("on", x === b)); $(`#group-${b.dataset.go}`).scrollIntoView({ behavior: "smooth", block: "start" }); }));
     $$("[data-rv]", el).forEach((a) => a.addEventListener("click", async (e) => { e.preventDefault(); try { await post(`/api/review/${a.dataset.rv}/${a.dataset.act}`); toast(a.dataset.act === "accept" ? "Accepted" : "Rejected"); refreshStatus(); renderers.profile(); } catch (err) { fail(err); } }));
+    const proposeDone = (j) => { const c = j.result || {}; toast(`${c.catalogue || 0} fact(s) from Glottolog, ${c.agent || 0} from ${c.pages || 0} page(s)`); if ((c.catalogue || 0) + (c.agent || 0) > 0) { state.reviewLang = state.lang; show("review"); } else renderers.profile(); };
     $("#profile-propose").addEventListener("click", async () => {
       const job = $("#propose-job"); job.classList.remove("hidden");
-      try {
-        const j = await runJob("profile_enrich", {}, $("#propose-log"));
-        const c = j.result || {};
-        toast(`${c.catalogue || 0} fact(s) from Glottolog, ${c.agent || 0} from ${c.pages || 0} page(s)`);
-        if ((c.catalogue || 0) + (c.agent || 0) > 0) { state.reviewLang = state.lang; show("review"); } else renderers.profile();
-      } catch (e) { fail(e); }
+      try { await runJob("profile_enrich", {}, $("#propose-log"), proposeDone); } catch (e) { fail(e); }
     });
+    resumeJob(["profile_enrich"], "propose-job", () => {}, (j) => j.status === "running").catch(() => {});
     $$(".field-row", el).forEach((row) => {
       const form = $(".editor", row);
       $(".edit", row).addEventListener("click", () => { form.classList.toggle("hidden"); row.classList.toggle("editing", !form.classList.contains("hidden")); const first = $("input, select, textarea", form); if (first && !form.classList.contains("hidden")) first.focus(); });
@@ -295,12 +292,28 @@
   }
 
   // ------------------------------------------------------------------ jobs
-  function runJob(kind, params, logEl, onDone) {
-    return post("/api/jobs", { kind, language_id: state.lang, params }).then(({ job_id }) => new Promise((resolve, reject) => {
-      logEl.textContent = "starting …";
+  // A job runs on the server; the page only watches it. Leaving a page never stops a job, and
+  // coming back re-attaches to it (resumeJob), so the log, progress and result are never lost.
+  const JOB_LABEL = { import: "Import", offline: "Offline scan", catalogue_search: "Catalogue search", catalogue_collect: "Catalogue download", agent_search: "Agent search", profile_enrich: "Propose values" };
+  const JOB_VIEW = { import: "import", offline: "offline", catalogue_search: "catalogue", catalogue_collect: "catalogue", agent_search: "agent", profile_enrich: "profile" };
+  function jobCounter(j) {
+    const c = (j.progress || {}).counters || {}, active = (j.progress || {}).active || [];
+    const bits = [];
+    if (c.files_seen != null && !c.records) bits.push(`${c.files_seen} files seen, ${c.hits || 0} match(es)`);
+    if (c.import_total) bits.push(`${c.import_done || 0}/${c.import_total} imported`);
+    if (c.records) bits.push(`record ${c.record || 0}/${c.records}`);
+    if (c.max_pages) bits.push(`pages ${c.pages || 0}/${c.max_pages}`);
+    if (active.length) bits.push(`${active.length} download(s) · ${hb(active.reduce((n, t) => n + (t.speed || 0), 0))}/s`);
+    return bits.join(" · ") || (c.stage ? String(c.stage) : "") || (j.last_line || "").slice(0, 60) || "working …";
+  }
+  function startJob(kind, params) { return post("/api/jobs", { kind, language_id: state.lang, params }).then((r) => { watchJobs(); return r.job_id; }); }
+  function attachJob(jobId, logEl, onDone) {
+    return new Promise((resolve, reject) => {
+      if (!logEl.textContent) logEl.textContent = "starting …";
       const tick = async () => {
         try {
-          const j = await get(`/api/jobs/${job_id}`);
+          if (!logEl.isConnected) return resolve(null);          // the page moved on; the job keeps running on the server
+          const j = await get(`/api/jobs/${jobId}`);
           logEl.textContent = j.log.join("\n") || "…";
           logEl.scrollTop = logEl.scrollHeight;
           renderProgress(logEl, j);
@@ -313,7 +326,45 @@
         } catch (e) { reject(e); }
       };
       tick();
-    }));
+    });
+  }
+  function runJob(kind, params, logEl, onDone) { return startJob(kind, params).then((id) => attachJob(id, logEl, onDone)); }
+  const langName = (id) => { const l = (state.status?.languages || []).find((x) => x.id === id); return l ? l.name : id; };
+  async function watchJobs() {
+    clearTimeout(state.jobsTimer);
+    let jobs;
+    try { jobs = (await get("/api/jobs?summary=1")).jobs; } catch (e) { return; }
+    const running = jobs.filter((j) => j.status === "running");
+    const seen = state.jobsSeen || (state.jobsSeen = {});
+    for (const j of jobs) {
+      if (seen[j.id] === "running" && j.status !== "running") {
+        toast(`${JOB_LABEL[j.kind] || j.kind} for ${langName(j.language_id)} ${j.status === "failed" ? "failed: " + (j.error || "") : "finished"}`, j.status === "failed");
+        refreshStatus().catch(() => {}); if (state.view === "home") renderers.home().catch(() => {});
+      }
+      seen[j.id] = j.status;
+    }
+    $("#side-jobs").innerHTML = running.map((j) => `<button class="side-job" data-job-lang="${esc(j.language_id)}" data-job-view="${JOB_VIEW[j.kind] || "home"}"><span class="t"><span class="spinner"></span>${esc(JOB_LABEL[j.kind] || j.kind)} · ${esc(j.language_id)}</span><span class="s">${esc(jobCounter(j))}</span></button>`).join("");
+    $$("#side-jobs [data-job-lang]").forEach((b) => b.addEventListener("click", () => openLanguage(b.dataset.jobLang, b.dataset.jobView)));
+    state.jobs = jobs;
+    if (running.length) state.jobsTimer = setTimeout(watchJobs, 1500);
+  }
+  async function latestJob(kinds, extra) {
+    const jobs = (await get("/api/jobs?summary=1")).jobs;
+    return jobs.find((j) => kinds.includes(j.kind) && j.language_id === state.lang && (!extra || extra(j))) || null;
+  }
+  const jobHead = (j) => `<div class="job-head">${j.status === "running" ? '<span class="spinner"></span>' : ""}<b>${esc(JOB_LABEL[j.kind] || j.kind)}</b> started ${esc(when(j.started_at))}${j.status !== "running" ? ` · ${esc(j.status)} ${esc(when(j.finished_at))}` : " · still running; you can leave this page and come back"}${j.params && j.params.path ? ` · ${esc(j.params.path)}` : ""}${j.params && j.params.roots ? ` · ${esc(j.params.roots.join(", "))}` : ""}</div>`;
+  /** Show the latest job of these kinds for the current language (running or done) in the view's job box. */
+  async function resumeJob(kinds, boxId, onDone, extra) {
+    const j = await latestJob(kinds, extra);
+    if (!j) return null;
+    const box = $(`#${boxId}`); if (!box) return null;
+    box.classList.remove("hidden");
+    let head = $(".job-head", box); if (!head) { head = document.createElement("div"); box.prepend(head); }
+    head.outerHTML = jobHead(j);
+    const log = $("pre", box);
+    if (j.status === "running") { attachJob(j.id, log, (done) => { $(".job-head", box).outerHTML = jobHead(done); onDone(done); }).catch(() => {}); }
+    else { const full = await get(`/api/jobs/${j.id}`); log.textContent = full.log.join("\n"); if (full.status === "finished") onDone(full); else if (full.error) toast(full.error, true); }
+    return j;
   }
   function renderProgress(logEl, j) {
     let box = logEl.nextElementSibling;
@@ -333,7 +384,7 @@
         <div class="xfer-stats">${t.total ? `${t.percent.toFixed(0)}% · ${hb(t.done)} / ${hb(t.total)}` : hb(t.done)} · ${hb(t.speed)}/s${t.eta != null ? ` · eta ${ht(t.eta)}` : ""}</div></div>`).join("");
   }
   const jobBox = (id) => `<div class="job hidden" id="${id}"><pre class="log"></pre><div class="progress-box"></div></div>`;
-  function openJob(id) { const j = $(`#${id}`); j.classList.remove("hidden"); return $("pre", j); }
+  function openJob(id) { const j = $(`#${id}`); j.classList.remove("hidden"); $(".job-head", j)?.remove(); const pre = $("pre", j); pre.textContent = ""; $(".progress-box", j).innerHTML = ""; return pre; }
   function summaryHtml(s) {
     return `<div class="section-head"><h2 class="section">Session ${esc(s.id)}</h2><span class="note">${esc(s.language_name)} · ${esc(s.mode)} · ${esc(s.status)}</span></div>
       <div class="stats">${[["Discovered", s.discovered], ["Relevant", s.relevant], ["Downloaded", s.downloaded], ["Duplicates", s.duplicates], ["Failed", s.failed], ["Pending review", s.pending_review]].map(([k, v]) => `<div class="stat"><span class="n">${v}</span><span class="l">${k}</span></div>`).join("")}</div>`;
@@ -355,18 +406,25 @@
       <div class="chips">${cats.map((c) => `<label class="chip ${c.enabled ? "" : "off"}"><input type="checkbox" name="prov" value="${esc(c.name)}" ${c.enabled ? "checked" : "disabled"}> ${esc(c.name)} <span class="muted">${esc(c.kind)}</span></label>`).join("")}<a class="link quiet" id="cat-manage">manage catalogues</a></div>
       ${jobBox("cat-job")}<div id="cat-results"></div>`;
     $("#cat-manage").addEventListener("click", () => show("catalogues"));
+    const searchDone = (j) => {
+      state.lastCatalogueJob = j.id;
+      $("#cat-job").classList.add("hidden");
+      const secs = Math.max(0, Math.round((new Date(j.finished_at) - new Date(j.started_at)) / 1000)) || 0;
+      renderCatalogueResults(j.result, secs, (j.params || {}).providers || []);
+      resumeJob(["catalogue_collect"], "cat-collect-job", (c) => showCollectResult(c), (c) => (c.params || {}).search_job === j.id).catch(() => {});
+    };
     $("#cat-search").addEventListener("click", async () => {
       const providers = $$("input[name=prov]:checked", el).map((i) => i.value);
       const log = openJob("cat-job"); $("#cat-results").innerHTML = "";
-      const t0 = Date.now();
-      try {
-        const j = await runJob("catalogue_search", { providers }, log);
-        state.lastCatalogueJob = j.id;
-        $("#cat-job").classList.add("hidden");
-        renderCatalogueResults(j.result, Math.round((Date.now() - t0) / 1000), providers);
-      } catch (e) { fail(e); }
+      try { await runJob("catalogue_search", { providers }, log, searchDone); } catch (e) { fail(e); }
     });
+    resumeJob(["catalogue_search"], "cat-job", searchDone).catch(() => {});
   };
+  function showCollectResult(j2) {
+    const box = $("#cat-collect-result"); if (!box) return;
+    box.innerHTML = summaryHtml(j2.result.session) + (j2.result.proposals ? `<p class="note">${j2.result.proposals} language fact(s) proposed for review.</p>` : "") + outcomesHtml(j2.result.outcomes);
+    wireResourceRows(box);
+  }
   function renderCatalogueResults(r, secs, providers) {
     const cfg = state.status.config;
     const out = $("#cat-results");
@@ -395,12 +453,7 @@
       $("#cat-min").addEventListener("change", (e) => { minScore = Math.max(0, Math.min(100, Number(e.target.value) || 0)); draw(); });
       $("#cat-collect").addEventListener("click", async () => {
         const log = openJob("cat-collect-job");
-        try {
-          const j2 = await runJob("catalogue_collect", { search_job: state.lastCatalogueJob, min_score: minScore }, log);
-          const box = $("#cat-collect-result");
-          box.innerHTML = summaryHtml(j2.result.session) + (j2.result.proposals ? `<p class="note">${j2.result.proposals} language fact(s) proposed for review.</p>` : "") + outcomesHtml(j2.result.outcomes);
-          wireResourceRows(box); box.scrollIntoView({ behavior: "smooth" });
-        } catch (e) { fail(e); }
+        try { await runJob("catalogue_collect", { search_job: state.lastCatalogueJob, min_score: minScore }, log, (j2) => { showCollectResult(j2); $("#cat-collect-result").scrollIntoView({ behavior: "smooth" }); }); } catch (e) { fail(e); }
       });
     };
     draw();
@@ -426,17 +479,18 @@
       ${jobBox("agent-job")}<div id="agent-result"></div>`;
     $("#agent-to-settings").addEventListener("click", () => show("settings"));
     $("#agent-provider").addEventListener("change", async (e) => { try { await post("/api/agent/provider", { provider: e.target.value }); toast(`Agent provider: ${e.target.value}`); await refreshStatus(); renderers.agent(); } catch (err) { fail(err); } });
+    const agentDone = (j) => {
+      const r = j.result, out = $("#agent-result"); if (!out) return;
+      out.innerHTML = summaryHtml(r.session) + `<p class="note">Hits ${r.hits} · pages fetched ${r.pages_fetched} · relevant ${r.pages_relevant} · files found ${r.files_found}${r.learned.length ? ` · learned: ${esc(r.learned.join(", "))}` : ""}${r.proposals_queued ? ` · ${r.proposals_queued} fact(s) proposed for review` : ""}</p>` + r.errors.map((e) => `<p class="note" style="color:var(--red)">${esc(e)}</p>`).join("") + outcomesHtml(r.outcomes);
+      wireResourceRows(out);
+    };
     $("#agent-run").addEventListener("click", async () => {
       const queries = plan.queries.filter((q, i) => $(`input[data-i="${i}"]`, el).checked).map((q) => ({ text: q.text, basis: q.basis, rationale: q.rationale }));
       $("#agent-extra").value.split(";").map((s) => s.trim()).filter(Boolean).forEach((t) => queries.push({ text: t, basis: "user" }));
       const log = openJob("agent-job");
-      try {
-        const j = await runJob("agent_search", { queries }, log);
-        const r = j.result, out = $("#agent-result");
-        out.innerHTML = summaryHtml(r.session) + `<p class="note">Hits ${r.hits} · pages fetched ${r.pages_fetched} · relevant ${r.pages_relevant} · files found ${r.files_found}${r.learned.length ? ` · learned: ${esc(r.learned.join(", "))}` : ""}${r.proposals_queued ? ` · ${r.proposals_queued} fact(s) proposed for review` : ""}</p>` + r.errors.map((e) => `<p class="note" style="color:var(--red)">${esc(e)}</p>`).join("") + outcomesHtml(r.outcomes);
-        wireResourceRows(out); out.scrollIntoView({ behavior: "smooth" });
-      } catch (e) { fail(e); }
+      try { await runJob("agent_search", { queries }, log, (j) => { agentDone(j); $("#agent-result").scrollIntoView({ behavior: "smooth" }); }); } catch (e) { fail(e); }
     });
+    resumeJob(["agent_search"], "agent-job", agentDone).catch(() => {});
   };
 
   // ------------------------------------------------------------------ offline (§8) and import (§9)
@@ -450,17 +504,18 @@
         <div class="panel"><h3>Options</h3><label class="note">Storage mode ${modeSelect("off-mode")}</label><label class="check"><input type="checkbox" id="off-content" checked> Also look inside text and document files</label></div></div>
       <div class="chips"><span class="eyebrow" style="margin-right:6px">Search terms</span>${terms.slice(0, 24).map((t) => `<span class="chip">${esc(t)}</span>`).join("")}${terms.length > 24 ? `<span class="note">and ${terms.length - 24} more</span>` : ""}</div>
       ${jobBox("off-job")}<div id="off-result"></div>`;
+    const offDone = (j) => {
+      const out = $("#off-result"); if (!out) return;
+      out.innerHTML = summaryHtml(j.result.session) + (j.result.scan ? `<p class="note">Files seen ${j.result.scan.files_seen} · matches ${j.result.scan.hits} · folders skipped ${j.result.scan.dirs_skipped}</p>` : "") + outcomesHtml(j.result.outcomes);
+      wireResourceRows(out);
+    };
     $("#off-run").addEventListener("click", async () => {
       const roots = $("#off-roots").value.split("\n").map((s) => s.trim()).filter(Boolean);
       if (!roots.length) return toast("Enter at least one folder", true);
       const log = openJob("off-job");
-      try {
-        const j = await runJob("offline", { roots, mode: $("#off-mode").value, content: $("#off-content").checked }, log);
-        const out = $("#off-result");
-        out.innerHTML = summaryHtml(j.result.session) + (j.result.scan ? `<p class="note">Files seen ${j.result.scan.files_seen} · matches ${j.result.scan.hits} · folders skipped ${j.result.scan.dirs_skipped}</p>` : "") + outcomesHtml(j.result.outcomes);
-        wireResourceRows(out); out.scrollIntoView({ behavior: "smooth" });
-      } catch (e) { fail(e); }
+      try { await runJob("offline", { roots, mode: $("#off-mode").value, content: $("#off-content").checked }, log, (j) => { offDone(j); $("#off-result").scrollIntoView({ behavior: "smooth" }); }); } catch (e) { fail(e); }
     });
+    resumeJob(["offline"], "off-job", offDone).then((j) => { if (j && j.params && j.params.roots) $("#off-roots").value = j.params.roots.join("\n"); }).catch(() => {});
   };
   renderers.import = async function () {
     const el = $("#view-import"), p = state.profileData.profile;
@@ -471,15 +526,14 @@
         <div class="panel"><h3>Storage mode</h3>${modeSelect("imp-mode")}<span class="note">copy keeps the original in place · move relocates it · reference indexes it where it is</span></div></div>
       ${jobBox("imp-job")}<div id="imp-result"></div>`;
     $("#imp-path").addEventListener("keydown", (e) => { if (e.key === "Enter") $("#imp-run").click(); });
+    const impDone = (j) => { const out = $("#imp-result"); if (!out) return; out.innerHTML = summaryHtml(j.result.session) + outcomesHtml(j.result.outcomes); wireResourceRows(out); };
     $("#imp-run").addEventListener("click", async () => {
       const path = $("#imp-path").value.trim();
       if (!path) return toast("Enter a path", true);
       const log = openJob("imp-job");
-      try {
-        const j = await runJob("import", { path, mode: $("#imp-mode").value }, log);
-        const out = $("#imp-result"); out.innerHTML = summaryHtml(j.result.session) + outcomesHtml(j.result.outcomes); wireResourceRows(out); out.scrollIntoView({ behavior: "smooth" });
-      } catch (e) { fail(e); }
+      try { await runJob("import", { path, mode: $("#imp-mode").value }, log, (j) => { impDone(j); $("#imp-result").scrollIntoView({ behavior: "smooth" }); }); } catch (e) { fail(e); }
     });
+    resumeJob(["import"], "imp-job", impDone).then((j) => { if (j && j.params && j.params.path) $("#imp-path").value = j.params.path; }).catch(() => {});
   };
 
   // ------------------------------------------------------------------ collection (§3 item 4)
@@ -641,6 +695,7 @@
 
   // ------------------------------------------------------------------ boot
   Promise.all([refreshStatus(), loadSchema()]).then(async () => {
+    watchJobs();
     const m = /^#([a-z]+)(?::([^&]+))?$/.exec(location.hash || "");
     if (m && m[2] && state.status.languages.some((l) => l.id === m[2])) { await openLanguage(m[2], renderers[m[1]] ? m[1] : "profile"); return; }
     if (m && m[1] === "review") state.reviewLang = null;
