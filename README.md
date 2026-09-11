@@ -14,3 +14,7 @@ bin/aimixe collect            # interactive
 bin/aimixe collect ui         # local web interface
 PYTHONPATH=src:tests python3 -m unittest discover -s tests
 ```
+
+## Licence
+
+MIT, see `LICENSE`. Bundled language data (Glottolog, ISO 639-3, ISO 15924, ISO 3166) keeps its own terms, listed at the end of `LICENSE`.

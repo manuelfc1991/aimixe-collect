@@ -139,3 +139,7 @@ input · 50 configuration · 70 internal.
   collection with resource detail (provenance, extracted files, near-duplicates), the review
   queue, history and catalogue management. Long runs are background jobs the page polls.
   No authentication: it is meant for the local machine; use SSH port forwarding for a remote one.
+
+## Licence
+
+MIT (see the repository's `LICENSE`). The bundled language data under `src/aimixe_collect/data/` keeps its own terms; see `data/REGISTRIES.md` and `data/reference-SOURCES.md`.
